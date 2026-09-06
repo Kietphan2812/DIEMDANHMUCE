@@ -299,16 +299,15 @@ async function dbApproveAccount(username) {
 
 async function dbDeleteAccount(username) {
     const uClean = (username || '').trim().toLowerCase();
-    if (uClean === 'admin') return { status: 'error', message: 'Không thể xóa tài khoản Admin hệ thống!' };
 
     if (pool) {
         try {
-            await pool.query("DELETE FROM accounts WHERE LOWER(username) = $1 AND is_default = false", [uClean]);
+            await pool.query("DELETE FROM accounts WHERE LOWER(username) = $1", [uClean]);
             return { status: 'success', message: 'Đã xóa tài khoản thành công!' };
         } catch (e) { console.error('Lỗi delete SQL:', e); }
     }
     let list = await dbGetAccounts();
-    list = list.filter(a => String(a.username || '').toLowerCase() !== uClean || a.isDefault);
+    list = list.filter(a => String(a.username || '').toLowerCase() !== uClean);
     await dbSaveAccountsLocal(list);
     return { status: 'success', message: 'Đã xóa tài khoản!' };
 }

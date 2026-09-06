@@ -1268,37 +1268,22 @@
                     ? `<span class="badge bg-danger">Super Admin</span>`
                     : `<span class="badge bg-info text-dark">Staff / Nhân viên</span>`;
 
-                let actionBtns = '';
                 const uEsc = item.username.replace(/'/g, "\\'");
-                if (item.isDefault || item.username === 'admin') {
-                    actionBtns = `
-                        <button class="btn btn-sm btn-outline-warning text-dark fw-bold me-1" onclick="openEditAccountModal('${uEsc}')">
-                            <i class="fa-solid fa-pen-to-square me-1"></i> Sửa Mật Khẩu
-                        </button>
-                        <span class="badge bg-secondary"><i class="fa-solid fa-shield-halved me-1"></i>Hệ thống</span>
-                    `;
-                } else if (isPending) {
-                    actionBtns = `
-                        <button class="btn btn-sm btn-success fw-bold me-1" onclick="approveAccount('${uEsc}')">
-                            <i class="fa-solid fa-check me-1"></i> Phê Duyệt
-                        </button>
-                        <button class="btn btn-sm btn-outline-warning text-dark fw-bold me-1" onclick="openEditAccountModal('${uEsc}')">
-                            <i class="fa-solid fa-pen-to-square me-1"></i> Sửa
-                        </button>
-                        <button class="btn btn-sm btn-danger fw-bold" onclick="deleteAccount('${uEsc}')">
-                            <i class="fa-solid fa-trash me-1"></i> Xóa
-                        </button>
-                    `;
-                } else {
-                    actionBtns = `
-                        <button class="btn btn-sm btn-outline-warning text-dark fw-bold me-1" onclick="openEditAccountModal('${uEsc}')">
-                            <i class="fa-solid fa-pen-to-square me-1"></i> Sửa
-                        </button>
-                        <button class="btn btn-sm btn-danger fw-bold" onclick="deleteAccount('${uEsc}')">
-                            <i class="fa-solid fa-trash me-1"></i> Xóa
-                        </button>
-                    `;
-                }
+                const approveBtn = isPending ? `
+                    <button class="btn btn-sm btn-success fw-bold me-1" onclick="approveAccount('${uEsc}')">
+                        <i class="fa-solid fa-check me-1"></i> Phê Duyệt
+                    </button>
+                ` : '';
+
+                const actionBtns = `
+                    ${approveBtn}
+                    <button class="btn btn-sm btn-outline-warning text-dark fw-bold me-1" onclick="openEditAccountModal('${uEsc}')">
+                        <i class="fa-solid fa-pen-to-square me-1"></i> Sửa
+                    </button>
+                    <button class="btn btn-sm btn-danger fw-bold" onclick="deleteAccount('${uEsc}')">
+                        <i class="fa-solid fa-trash me-1"></i> Xóa
+                    </button>
+                `;
 
                 return `
                     <tr class="text-nowrap">
