@@ -231,6 +231,7 @@
                         <h5 class="fw-bold mb-0"><i class="fa-solid fa-users text-primary me-2"></i>Danh sách sinh viên điểm danh</h5>
                         <div class="d-flex gap-2 flex-wrap">
                             <button type="button" class="btn btn-sm btn-primary fw-bold" onclick="openAddManualCheckinModal()"><i class="fa-solid fa-user-plus me-1"></i> Thêm Điểm Danh Thủ Công</button>
+                            <button type="button" class="btn btn-sm btn-outline-success fw-bold" onclick="openImportExcelModal()"><i class="fa-solid fa-file-import me-1"></i> Nhập Từ File Excel</button>
                             <div class="btn-group" id="btnExportExcelGroup">
                                 <button type="button" class="btn btn-sm btn-success fw-bold" onclick="exportMultiSheetExcel()"><i class="fa-solid fa-file-excel me-1"></i> Xuất File Excel (4 Khoa)</button>
                                 <button type="button" class="btn btn-sm btn-success dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown" aria-expanded="false">
@@ -567,6 +568,68 @@
         </div>
     </div>
 
+    <!-- Modal Nhập Danh Sách Từ File Excel -->
+    <div class="modal fade" id="importExcelModal" tabindex="-1" aria-labelledby="importExcelModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content shadow-lg border-0" style="border-radius: 16px;">
+                <div class="modal-header bg-dark text-white py-3" style="border-top-left-radius: 16px; border-top-right-radius: 16px;">
+                    <h5 class="modal-title fw-bold" id="importExcelModalLabel"><i class="fa-solid fa-file-import text-success me-2"></i>Nhập Danh Sách Điểm Danh Từ File Excel</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <div class="alert alert-info py-2 small mb-3">
+                        <i class="fa-solid fa-circle-info me-1"></i> File Excel cần chứa các cột: <b>MSSV, Họ và Tên, Lớp, Khoa, Số điện thoại (tùy chọn), Email (tùy chọn)</b>.
+                        <button type="button" class="btn btn-sm btn-light border ms-2 fw-bold text-dark" onclick="downloadSampleExcel()"><i class="fa-solid fa-download me-1 text-primary"></i>Tải File Excel Mẫu</button>
+                    </div>
+
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold small">Chọn Sự Kiện Để Nhập Vào:</label>
+                            <select class="form-select fw-bold" id="importActivityCode" required>
+                                <!-- Populated dynamically -->
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold small">Chọn File Excel (.xlsx, .xls, .csv):</label>
+                            <input type="file" class="form-control" id="importExcelFileInput" accept=".xlsx, .xls, .csv" onchange="previewExcelFile(event)" />
+                        </div>
+                    </div>
+
+                    <!-- Xem trước dữ liệu -->
+                    <div id="importPreviewContainer" class="d-none mt-3">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <h6 class="fw-bold mb-0 text-success"><i class="fa-solid fa-list-check me-1"></i>Xem Trước Dữ Liệu (<span id="importRecordCount">0</span> sinh viên)</h6>
+                        </div>
+                        <div class="table-responsive border rounded" style="max-height: 250px;">
+                            <table class="table table-sm table-striped small align-middle mb-0" id="importPreviewTable">
+                                <thead class="table-dark text-nowrap">
+                                    <tr>
+                                        <th>STT</th>
+                                        <th>MSSV</th>
+                                        <th>Họ và Tên</th>
+                                        <th>Lớp</th>
+                                        <th>Khoa</th>
+                                        <th>SĐT</th>
+                                        <th>Email</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="importPreviewTbody">
+                                    <!-- Rendered dynamically -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div class="d-flex justify-content-end gap-2 mt-4">
+                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Hủy</button>
+                        <button type="button" class="btn btn-success fw-bold px-4 d-none" id="btnSubmitImportExcel" onclick="submitImportExcel()"><i class="fa-solid fa-cloud-arrow-up me-1"></i>Tải Hàng Loạt Vào CSDL SQL</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <script src="https://unpkg.com/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
@@ -1817,6 +1880,209 @@
             } catch (err) {
                 alert('Lỗi kết nối máy chủ!');
                 console.error(err);
+            }
+        }
+
+        // QUẢN LÝ NHẬP HÀNG LOẠT TỪ FILE EXCEL
+        let importExcelModalInstance = null;
+        let pendingImportRecords = [];
+
+        function openImportExcelModal() {
+            document.getElementById('importExcelFileInput').value = '';
+            document.getElementById('importPreviewContainer').classList.add('d-none');
+            document.getElementById('btnSubmitImportExcel').classList.add('d-none');
+            pendingImportRecords = [];
+
+            const actSelect = document.getElementById('importActivityCode');
+            const acts = getActivities();
+            if (acts.length === 0) {
+                actSelect.innerHTML = '<option value="">-- Chưa có sự kiện --</option>';
+            } else {
+                actSelect.innerHTML = acts.map(a => `<option value="${a.code}">${a.code} - ${a.title}</option>`).join('');
+            }
+
+            if (!importExcelModalInstance) {
+                importExcelModalInstance = new bootstrap.Modal(document.getElementById('importExcelModal'));
+            }
+            importExcelModalInstance.show();
+        }
+
+        function downloadSampleExcel() {
+            if (typeof XLSX === 'undefined') {
+                alert("Đang nạp thư viện Excel... Vui lòng thử lại sau vài giây!");
+                return;
+            }
+            const sampleData = [
+                ["MSSV", "Họ và Tên", "Lớp", "Khoa", "Số Điện Thoại", "Email"],
+                ["21000123", "Nguyễn Văn An", "DH20KT01", "Khoa Kỹ thuật Công nghệ", "0912345678", "an.nguyen@muce.edu.vn"],
+                ["21000456", "Trần Thị Bình", "DH20KD02", "Khoa Kinh tế", "0987654321", "binh.tran@muce.edu.vn"],
+                ["21000789", "Lê Văn Cường", "DH20XD01", "Khoa Xây dựng", "0933112233", "cuong.le@muce.edu.vn"],
+                ["21000999", "Phạm Hoàng Dũng", "DH20KT02", "Khoa Kiến trúc", "0944556677", "dung.pham@muce.edu.vn"]
+            ];
+            const wb = XLSX.utils.book_new();
+            const ws = XLSX.utils.aoa_to_sheet(sampleData);
+            XLSX.utils.book_append_sheet(wb, ws, "Mau_Diem_Danh");
+            XLSX.writeFile(wb, "File_Mau_Nhap_Diem_Danh_MUCE.xlsx");
+        }
+
+        function previewExcelFile(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            if (typeof XLSX === 'undefined') {
+                alert("Thư viện Excel đang được tải... Vui lòng chọn lại file sau 2 giây!");
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = function(evt) {
+                try {
+                    const data = new Uint8Array(evt.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const firstSheetName = workbook.SheetNames[0];
+                    const worksheet = workbook.Sheets[firstSheetName];
+                    const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+
+                    if (!rows || rows.length < 2) {
+                        alert("File Excel không chứa dữ liệu hoặc thiếu dòng tiêu đề!");
+                        return;
+                    }
+
+                    const header = (rows[0] || []).map(h => String(h || '').toLowerCase().trim());
+                    let colMssv = header.findIndex(h => h.includes('mssv') || h.includes('mã') || h.includes('stt'));
+                    let colName = header.findIndex(h => h.includes('họ') || h.includes('tên') || h.includes('name'));
+                    let colClass = header.findIndex(h => h.includes('lớp') || h.includes('class'));
+                    let colFaculty = header.findIndex(h => h.includes('khoa') || h.includes('faculty'));
+                    let colPhone = header.findIndex(h => h.includes('thoại') || h.includes('sđt') || h.includes('phone'));
+                    let colEmail = header.findIndex(h => h.includes('email') || h.includes('gmail'));
+
+                    if (colMssv === -1) colMssv = 0;
+                    if (colName === -1) colName = 1;
+                    if (colClass === -1) colClass = 2;
+                    if (colFaculty === -1) colFaculty = 3;
+                    if (colPhone === -1) colPhone = 4;
+                    if (colEmail === -1) colEmail = 5;
+
+                    const code = document.getElementById('importActivityCode').value;
+                    const acts = getActivities();
+                    const currentAct = acts.find(a => a.code === code) || {};
+                    const title = currentAct.title || code;
+                    const now = new Date();
+                    const pad = (n) => String(n).padStart(2, '0');
+                    const friendlyTime = `${pad(now.getDate())}/${pad(now.getMonth()+1)}/${now.getFullYear()} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+
+                    pendingImportRecords = [];
+                    let tbodyHtml = '';
+
+                    for (let i = 1; i < rows.length; i++) {
+                        const row = rows[i];
+                        if (!row || row.length === 0) continue;
+                        
+                        const mssv = String(row[colMssv] || '').trim();
+                        const name = String(row[colName] || '').trim();
+                        const className = String(row[colClass] || '').trim();
+                        let faculty = String(row[colFaculty] || '').trim();
+                        const phone = String(row[colPhone] || '').trim();
+                        const email = String(row[colEmail] || '').trim();
+
+                        if (!mssv && !name) continue;
+
+                        if (faculty.toLowerCase().includes('kỹ thuật') || faculty.toLowerCase().includes('công nghệ')) {
+                            faculty = 'Khoa Kỹ thuật Công nghệ';
+                        } else if (faculty.toLowerCase().includes('kinh tế')) {
+                            faculty = 'Khoa Kinh tế';
+                        } else if (faculty.toLowerCase().includes('xây dựng')) {
+                            faculty = 'Khoa Xây dựng';
+                        } else if (faculty.toLowerCase().includes('kiến trúc')) {
+                            faculty = 'Khoa Kiến trúc';
+                        } else if (!faculty) {
+                            faculty = 'Khoa Kỹ thuật Công nghệ';
+                        }
+
+                        const item = {
+                            timestamp: friendlyTime,
+                            code: code,
+                            title: title,
+                            studentCode: mssv,
+                            name: name,
+                            className: className,
+                            faculty: faculty,
+                            phoneNumber: phone,
+                            email: email,
+                            coords: (currentAct.latitude && currentAct.longitude) ? `${currentAct.latitude}, ${currentAct.longitude}` : 'Thủ công (Excel)',
+                            distance: 'Nhập từ Excel (Admin)',
+                            device: 'Import Excel',
+                            ip: '127.0.0.1'
+                        };
+
+                        pendingImportRecords.push(item);
+                        tbodyHtml += `
+                            <tr>
+                                <td>${pendingImportRecords.length}</td>
+                                <td class="font-monospace fw-bold">${mssv}</td>
+                                <td class="fw-bold">${name}</td>
+                                <td>${className || '--'}</td>
+                                <td>${faculty}</td>
+                                <td>${phone || '--'}</td>
+                                <td>${email || '--'}</td>
+                            </tr>
+                        `;
+                    }
+
+                    document.getElementById('importRecordCount').textContent = pendingImportRecords.length;
+                    document.getElementById('importPreviewTbody').innerHTML = tbodyHtml;
+                    document.getElementById('importPreviewContainer').classList.remove('d-none');
+                    document.getElementById('btnSubmitImportExcel').classList.remove('d-none');
+
+                } catch (err) {
+                    console.error(err);
+                    alert("Lỗi khi đọc file Excel. Vui lòng kiểm tra định dạng file!");
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        async function submitImportExcel() {
+            if (!pendingImportRecords || pendingImportRecords.length === 0) {
+                alert("Không có sinh viên nào để tải lên!");
+                return;
+            }
+
+            const code = document.getElementById('importActivityCode').value;
+            const acts = getActivities();
+            const currentAct = acts.find(a => a.code === code) || {};
+            const title = currentAct.title || code;
+
+            pendingImportRecords.forEach(r => {
+                r.code = code;
+                r.title = title;
+            });
+
+            const btn = document.getElementById('btnSubmitImportExcel');
+            const origHtml = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-1"></i>Đang tải hàng loạt lên CSDL SQL...';
+
+            try {
+                const res = await fetch('/api?action=batchCheckin', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ records: pendingImportRecords })
+                });
+                const data = await res.json();
+                if (data.status === 'success') {
+                    alert(`Thành công! Đã nhập ${data.count || pendingImportRecords.length} sinh viên từ file Excel vào CSDL SQL!`);
+                    if (importExcelModalInstance) importExcelModalInstance.hide();
+                    fetchAttendanceData();
+                } else {
+                    alert("Lỗi nhập dữ liệu: " + (data.message || 'Thất bại'));
+                }
+            } catch (err) {
+                alert("Lỗi kết nối máy chủ khi nhập dữ liệu Excel!");
+                console.error(err);
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = origHtml;
             }
         }
 

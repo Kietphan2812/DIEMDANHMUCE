@@ -262,6 +262,38 @@ async function dbSaveCheckin(record) {
     return true;
 }
 
+async function dbSaveBatchCheckins(records) {
+    if (!Array.isArray(records) || records.length === 0) return { status: 'error', message: 'Dữ liệu danh sách rỗng!' };
+    
+    if (pool) {
+        try {
+            for (const r of records) {
+                if (!r) continue;
+                await pool.query(`
+                    INSERT INTO checkins (timestamp, code, title, student_code, name, class_name, faculty, phone_number, email, coords, distance, device, ip, device_uuid)
+                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14);
+                `, [
+                    r.timestamp || new Date().toLocaleString('vi-VN'),
+                    r.code || '', r.title || '', r.studentCode || '',
+                    r.name || '', r.className || '', r.faculty || '',
+                    r.phoneNumber || '', r.email || '', r.coords || 'Thủ công (Excel)',
+                    r.distance || 'Nhập từ Excel (Admin)', r.device || 'Import Excel',
+                    r.ip || '127.0.0.1', r.deviceUuid || ''
+                ]);
+            }
+            return { status: 'success', count: records.length, message: `Đã nhập thành công ${records.length} lượt điểm danh từ Excel!` };
+        } catch (e) { console.error('Lỗi batch checkin SQL:', e); }
+    }
+    
+    let list = [];
+    if (fs.existsSync(RECORDS_FILE)) {
+        try { list = JSON.parse(fs.readFileSync(RECORDS_FILE, 'utf8')); } catch (e) {}
+    }
+    records.slice().reverse().forEach(r => list.unshift(r));
+    fs.writeFileSync(RECORDS_FILE, JSON.stringify(list, null, 2), 'utf8');
+    return { status: 'success', count: records.length, message: `Đã nhập ${records.length} bản ghi!` };
+}
+
 // Helpers Quản Lý Tài Khoản (Accounts)
 async function dbGetAccounts() {
     if (pool) {
@@ -694,6 +726,14 @@ const server = http.createServer(async (req, res) => {
 
                     if (action === 'deleteCheckin' || json.action === 'deleteCheckin' || action === 'deleteCheckinRecord') {
                         const result = await dbDeleteCheckinRecord(json.id, json.studentCode, json.code);
+                        res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+                        res.end(JSON.stringify(result));
+                        return;
+                    }
+
+                    if (action === 'batchCheckin' || json.action === 'batchCheckin' || action === 'importCheckins') {
+                        const list = Array.isArray(json) ? json : (json.records || []);
+                        const result = await dbSaveBatchCheckins(list);
                         res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
                         res.end(JSON.stringify(result));
                         return;
