@@ -2002,12 +2002,30 @@
                     const worksheet = workbook.Sheets[firstSheetName];
                     const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
 
-                    if (!rows || rows.length < 2) {
-                        alert("File Excel không chứa dữ liệu hoặc thiếu dòng tiêu đề!");
+                    if (!rows || rows.length === 0) {
+                        alert("File Excel không chứa dữ liệu!");
                         return;
                     }
 
-                    const header = (rows[0] || []).map(h => String(h || '').toLowerCase().trim());
+                    // 1. Tự động tìm dòng tiêu đề (Header Row) bằng cách quét các dòng chứa từ khóa mssv/họ tên/lớp
+                    let headerRowIdx = -1;
+                    for (let r = 0; r < rows.length; r++) {
+                        const rowStr = (rows[r] || []).map(cell => String(cell || '').toLowerCase().trim()).join(' ');
+                        if (rowStr.includes('mssv') || rowStr.includes('mã sv') || rowStr.includes('mã sinh viên') || rowStr.includes('họ và tên') || rowStr.includes('họ tên') || rowStr.includes('tên sinh viên')) {
+                            headerRowIdx = r;
+                            break;
+                        }
+                    }
+
+                    if (headerRowIdx === -1) {
+                        headerRowIdx = rows.findIndex(r => r && r.length > 0 && r.some(c => c !== null && c !== undefined && String(c).trim() !== ''));
+                        if (headerRowIdx === -1) {
+                            alert("Không tìm thấy dữ liệu hợp lệ trong file Excel!");
+                            return;
+                        }
+                    }
+
+                    const header = (rows[headerRowIdx] || []).map(h => String(h || '').toLowerCase().trim());
                     
                     let colActCode = header.findIndex(h => h.includes('mã sự kiện') || h.includes('mã hoạt động') || h === 'mã sk');
                     let colActTitle = header.findIndex(h => h.includes('tên sự kiện') || h.includes('tên hoạt động') || h === 'tên sk');
@@ -2027,20 +2045,13 @@
                     let colDistance = header.findIndex(h => h.includes('khoảng cách') || h.includes('cách tâm') || h.includes('distance'));
 
                     if (colMssv === -1) {
-                        if (header[0] && (header[0].includes('stt') || header[0] === 'no' || header[0] === 'nº')) {
-                            colMssv = 1;
-                        } else {
-                            colMssv = 0;
-                        }
+                        colMssv = (header[0] && (header[0].includes('stt') || header[0] === 'no')) ? 1 : 0;
                     }
                     if (colName === -1) {
-                        colName = header.findIndex((h, idx) => idx !== colMssv && idx !== colActCode && idx !== colActTitle && !h.includes('sự kiện') && !h.includes('hoạt động'));
-                        if (colName === -1) colName = (colMssv === 0) ? 1 : 2;
+                        colName = (colMssv === 0) ? 1 : 2;
                     }
-                    if (colClass === -1) colClass = colName + 1;
-                    if (colFaculty === -1) colFaculty = colClass + 1;
-                    if (colPhone === -1) colPhone = colFaculty + 1;
-                    if (colEmail === -1) colEmail = colPhone + 1;
+
+                    // Lưu ý quan trọng: Các cột không có trong tiêu đề (Lớp, Khoa, SĐT, Email...) sẽ giữ nguyên -1, KHÔNG tự suy đoán vị trí!
 
                     const selectedCode = document.getElementById('importActivityCode').value;
                     const acts = getActivities();
@@ -2053,16 +2064,16 @@
                     pendingImportRecords = [];
                     let tbodyHtml = '';
 
-                    for (let i = 1; i < rows.length; i++) {
+                    for (let i = headerRowIdx + 1; i < rows.length; i++) {
                         const row = rows[i];
                         if (!row || row.length === 0) continue;
                         
-                        const mssv = (colMssv !== -1 && row[colMssv] !== undefined) ? String(row[colMssv]).trim() : '';
-                        const name = (colName !== -1 && row[colName] !== undefined) ? String(row[colName]).trim() : '';
-                        const className = (colClass !== -1 && row[colClass] !== undefined) ? String(row[colClass]).trim() : '';
-                        let faculty = (colFaculty !== -1 && row[colFaculty] !== undefined) ? String(row[colFaculty]).trim() : '';
-                        const phone = (colPhone !== -1 && row[colPhone] !== undefined) ? String(row[colPhone]).trim() : '';
-                        const email = (colEmail !== -1 && row[colEmail] !== undefined) ? String(row[colEmail]).trim() : '';
+                        const mssv = (colMssv !== -1 && row[colMssv] !== undefined && row[colMssv] !== null) ? String(row[colMssv]).trim() : '';
+                        const name = (colName !== -1 && row[colName] !== undefined && row[colName] !== null) ? String(row[colName]).trim() : '';
+                        const className = (colClass !== -1 && row[colClass] !== undefined && row[colClass] !== null) ? String(row[colClass]).trim() : '';
+                        let rawFaculty = (colFaculty !== -1 && row[colFaculty] !== undefined && row[colFaculty] !== null) ? String(row[colFaculty]).trim() : '';
+                        const phone = (colPhone !== -1 && row[colPhone] !== undefined && row[colPhone] !== null) ? String(row[colPhone]).trim() : '';
+                        const email = (colEmail !== -1 && row[colEmail] !== undefined && row[colEmail] !== null) ? String(row[colEmail]).trim() : '';
                         const rowTime = (colTime !== -1 && row[colTime] !== undefined && String(row[colTime]).trim()) ? String(row[colTime]).trim() : friendlyTime;
                         const rowDist = (colDistance !== -1 && row[colDistance] !== undefined && String(row[colDistance]).trim()) ? String(row[colDistance]).trim() : 'Nhập từ Excel (Admin)';
                         const rowCode = (colActCode !== -1 && row[colActCode] !== undefined && String(row[colActCode]).trim()) ? String(row[colActCode]).trim().toUpperCase() : selectedCode;
@@ -2070,16 +2081,29 @@
 
                         if (!mssv && !name) continue;
 
-                        if (faculty.toLowerCase().includes('kỹ thuật') || faculty.toLowerCase().includes('công nghệ')) {
-                            faculty = 'Khoa Kỹ thuật Công nghệ';
-                        } else if (faculty.toLowerCase().includes('kinh tế')) {
-                            faculty = 'Khoa Kinh tế';
-                        } else if (faculty.toLowerCase().includes('xây dựng')) {
-                            faculty = 'Khoa Xây dựng';
-                        } else if (faculty.toLowerCase().includes('kiến trúc')) {
-                            faculty = 'Khoa Kiến trúc';
-                        } else if (!faculty) {
-                            faculty = 'Khoa Kỹ thuật Công nghệ';
+                        // Bỏ qua nếu dòng là dòng tiêu đề lặp lại
+                        const checkMssv = mssv.toLowerCase();
+                        const checkName = name.toLowerCase();
+                        if (checkMssv === 'mssv' || checkMssv === 'mã sv' || checkMssv === 'mã sinh viên' ||
+                            checkName === 'họ và tên' || checkName === 'họ tên' || checkName === 'tên sinh viên') {
+                            continue;
+                        }
+
+                        // Chỉ định dạng Khoa khi trong file CÓ dữ liệu Khoa, KHÔNG tự thêm mặc định khi file thiếu cột Khoa!
+                        let faculty = '';
+                        if (rawFaculty) {
+                            const facLower = rawFaculty.toLowerCase();
+                            if (facLower.includes('kỹ thuật') || facLower.includes('công nghệ')) {
+                                faculty = 'Khoa Kỹ thuật Công nghệ';
+                            } else if (facLower.includes('kinh tế')) {
+                                faculty = 'Khoa Kinh tế';
+                            } else if (facLower.includes('xây dựng')) {
+                                faculty = 'Khoa Xây dựng';
+                            } else if (facLower.includes('kiến trúc')) {
+                                faculty = 'Khoa Kiến trúc';
+                            } else {
+                                faculty = rawFaculty;
+                            }
                         }
 
                         const item = {
@@ -2105,11 +2129,18 @@
                                 <td class="font-monospace fw-bold">${mssv}</td>
                                 <td class="fw-bold">${name}</td>
                                 <td>${className || '--'}</td>
-                                <td>${faculty}</td>
+                                <td>${faculty || '--'}</td>
                                 <td>${phone || '--'}</td>
                                 <td>${email || '--'}</td>
                             </tr>
                         `;
+                    }
+
+                    if (pendingImportRecords.length === 0) {
+                        alert("Không tìm thấy dòng dữ liệu sinh viên hợp lệ nào trong file Excel!");
+                        document.getElementById('importPreviewContainer').classList.add('d-none');
+                        document.getElementById('btnSubmitImportExcel').classList.add('d-none');
+                        return;
                     }
 
                     document.getElementById('importRecordCount').textContent = pendingImportRecords.length;
