@@ -1949,12 +1949,23 @@
                     }
 
                     const header = (rows[0] || []).map(h => String(h || '').toLowerCase().trim());
-                    let colMssv = header.findIndex(h => h.includes('mssv') || h.includes('mã sv') || h.includes('mã sinh viên') || h.includes('studentcode') || h.includes('student_code') || h === 'mã');
-                    let colName = header.findIndex(h => h.includes('họ') || h.includes('tên') || h.includes('full name') || h.includes('fullname') || h === 'name');
+                    
+                    let colActCode = header.findIndex(h => h.includes('mã sự kiện') || h.includes('mã hoạt động') || h === 'mã sk');
+                    let colActTitle = header.findIndex(h => h.includes('tên sự kiện') || h.includes('tên hoạt động') || h === 'tên sk');
+
+                    let colMssv = header.findIndex(h => h.includes('mssv') || h.includes('mã sv') || h.includes('mã sinh viên') || h.includes('studentcode') || h.includes('student_code') || (h.includes('mã') && !h.includes('sự kiện') && !h.includes('hoạt động')));
+
+                    let colName = header.findIndex(h => 
+                        !h.includes('sự kiện') && !h.includes('hoạt động') && !h.includes('event') &&
+                        (h.includes('họ') || h.includes('tên sinh viên') || h.includes('họ và tên') || h.includes('họ tên') || h.includes('full name') || h.includes('fullname') || h === 'tên' || h === 'name')
+                    );
+
                     let colClass = header.findIndex(h => h.includes('lớp') || h.includes('class'));
                     let colFaculty = header.findIndex(h => h.includes('khoa') || h.includes('faculty'));
-                    let colPhone = header.findIndex(h => h.includes('thoại') || h.includes('sđt') || h.includes('phone'));
+                    let colPhone = header.findIndex(h => h.includes('thoại') || h.includes('sđt') || h.includes('phone') || h.includes('mobile'));
                     let colEmail = header.findIndex(h => h.includes('email') || h.includes('gmail') || h.includes('mail'));
+                    let colTime = header.findIndex(h => h.includes('thời gian') || h.includes('timestamp') || h.includes('ngày'));
+                    let colDistance = header.findIndex(h => h.includes('khoảng cách') || h.includes('cách tâm') || h.includes('distance'));
 
                     if (colMssv === -1) {
                         if (header[0] && (header[0].includes('stt') || header[0] === 'no' || header[0] === 'nº')) {
@@ -1963,16 +1974,19 @@
                             colMssv = 0;
                         }
                     }
-                    if (colName === -1) colName = (colMssv === 0) ? 1 : 2;
+                    if (colName === -1) {
+                        colName = header.findIndex((h, idx) => idx !== colMssv && idx !== colActCode && idx !== colActTitle && !h.includes('sự kiện') && !h.includes('hoạt động'));
+                        if (colName === -1) colName = (colMssv === 0) ? 1 : 2;
+                    }
                     if (colClass === -1) colClass = colName + 1;
                     if (colFaculty === -1) colFaculty = colClass + 1;
                     if (colPhone === -1) colPhone = colFaculty + 1;
                     if (colEmail === -1) colEmail = colPhone + 1;
 
-                    const code = document.getElementById('importActivityCode').value;
+                    const selectedCode = document.getElementById('importActivityCode').value;
                     const acts = getActivities();
-                    const currentAct = acts.find(a => a.code === code) || {};
-                    const title = currentAct.title || code;
+                    const currentAct = acts.find(a => a.code === selectedCode) || {};
+                    const selectedTitle = currentAct.title || selectedCode;
                     const now = new Date();
                     const pad = (n) => String(n).padStart(2, '0');
                     const friendlyTime = `${pad(now.getDate())}/${pad(now.getMonth()+1)}/${now.getFullYear()} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
@@ -1984,12 +1998,16 @@
                         const row = rows[i];
                         if (!row || row.length === 0) continue;
                         
-                        const mssv = String(row[colMssv] || '').trim();
-                        const name = String(row[colName] || '').trim();
-                        const className = String(row[colClass] || '').trim();
-                        let faculty = String(row[colFaculty] || '').trim();
-                        const phone = String(row[colPhone] || '').trim();
-                        const email = String(row[colEmail] || '').trim();
+                        const mssv = (colMssv !== -1 && row[colMssv] !== undefined) ? String(row[colMssv]).trim() : '';
+                        const name = (colName !== -1 && row[colName] !== undefined) ? String(row[colName]).trim() : '';
+                        const className = (colClass !== -1 && row[colClass] !== undefined) ? String(row[colClass]).trim() : '';
+                        let faculty = (colFaculty !== -1 && row[colFaculty] !== undefined) ? String(row[colFaculty]).trim() : '';
+                        const phone = (colPhone !== -1 && row[colPhone] !== undefined) ? String(row[colPhone]).trim() : '';
+                        const email = (colEmail !== -1 && row[colEmail] !== undefined) ? String(row[colEmail]).trim() : '';
+                        const rowTime = (colTime !== -1 && row[colTime] !== undefined && String(row[colTime]).trim()) ? String(row[colTime]).trim() : friendlyTime;
+                        const rowDist = (colDistance !== -1 && row[colDistance] !== undefined && String(row[colDistance]).trim()) ? String(row[colDistance]).trim() : 'Nhập từ Excel (Admin)';
+                        const rowCode = (colActCode !== -1 && row[colActCode] !== undefined && String(row[colActCode]).trim()) ? String(row[colActCode]).trim().toUpperCase() : selectedCode;
+                        const rowTitle = (colActTitle !== -1 && row[colActTitle] !== undefined && String(row[colActTitle]).trim()) ? String(row[colActTitle]).trim() : selectedTitle;
 
                         if (!mssv && !name) continue;
 
@@ -2006,9 +2024,9 @@
                         }
 
                         const item = {
-                            timestamp: friendlyTime,
-                            code: code,
-                            title: title,
+                            timestamp: rowTime,
+                            code: rowCode,
+                            title: rowTitle,
                             studentCode: mssv,
                             name: name,
                             className: className,
@@ -2016,7 +2034,7 @@
                             phoneNumber: phone,
                             email: email,
                             coords: (currentAct.latitude && currentAct.longitude) ? `${currentAct.latitude}, ${currentAct.longitude}` : 'Thủ công (Excel)',
-                            distance: 'Nhập từ Excel (Admin)',
+                            distance: rowDist,
                             device: 'Import Excel',
                             ip: '127.0.0.1'
                         };
