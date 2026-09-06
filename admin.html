@@ -2223,6 +2223,29 @@
             return data;
         }
 
+        // TỰ ĐỘNG TÍNH TOÁN ĐỘ RỘNG CỘT (COLUMN WIDTH) CHO FILE EXCEL RỘNG RÃI, ĐẸP MẮT
+        function createFormattedWorksheet(listData) {
+            const matrix = prepareSheetData(listData);
+            const ws = XLSX.utils.aoa_to_sheet(matrix);
+            
+            if (matrix && matrix.length > 0) {
+                const minWidths = [8, 22, 16, 26, 18, 25, 16, 28, 16, 32, 22, 22, 25, 18];
+                const colWidths = matrix[0].map((header, colIdx) => {
+                    let maxLen = header ? String(header).length : 10;
+                    for (let rowIdx = 1; rowIdx < matrix.length; rowIdx++) {
+                        const val = matrix[rowIdx][colIdx] !== null && matrix[rowIdx][colIdx] !== undefined ? String(matrix[rowIdx][colIdx]) : '';
+                        if (val.length > maxLen) {
+                            maxLen = val.length;
+                        }
+                    }
+                    const minW = minWidths[colIdx] || 15;
+                    return { wch: Math.max(maxLen + 5, minW) };
+                });
+                ws['!cols'] = colWidths;
+            }
+            return ws;
+        }
+
         // XUẤT 1 FILE EXCEL GỒM 5 SHEETS (Tất Cả 4 Khoa + 4 Sheet Riêng Từng Khoa)
         function exportMultiSheetExcel(e) {
             if (e) e.preventDefault();
@@ -2245,7 +2268,7 @@
             const wb = XLSX.utils.book_new();
 
             // Sheet 1: Tất Cả 4 Khoa
-            const ws1 = XLSX.utils.aoa_to_sheet(prepareSheetData(attendanceData));
+            const ws1 = createFormattedWorksheet(attendanceData);
             XLSX.utils.book_append_sheet(wb, ws1, "Tất Cả 4 Khoa");
 
             // Sheet 2: Khoa KT - Công Nghệ
@@ -2253,22 +2276,22 @@
                 const f = String(i.faculty || '').toLowerCase();
                 return f.includes("kỹ thuật") || f.includes("công nghệ");
             });
-            const ws2 = XLSX.utils.aoa_to_sheet(prepareSheetData(listKT));
+            const ws2 = createFormattedWorksheet(listKT);
             XLSX.utils.book_append_sheet(wb, ws2, "Khoa KT - Công Nghệ");
 
             // Sheet 3: Khoa Kinh Tế
             const listEcon = attendanceData.filter(i => String(i.faculty || '').toLowerCase().includes("kinh tế"));
-            const ws3 = XLSX.utils.aoa_to_sheet(prepareSheetData(listEcon));
+            const ws3 = createFormattedWorksheet(listEcon);
             XLSX.utils.book_append_sheet(wb, ws3, "Khoa Kinh Tế");
 
             // Sheet 4: Khoa Xây Dựng
             const listBuild = attendanceData.filter(i => String(i.faculty || '').toLowerCase().includes("xây dựng"));
-            const ws4 = XLSX.utils.aoa_to_sheet(prepareSheetData(listBuild));
+            const ws4 = createFormattedWorksheet(listBuild);
             XLSX.utils.book_append_sheet(wb, ws4, "Khoa Xây Dựng");
 
             // Sheet 5: Khoa Kiến Trúc
             const listArch = attendanceData.filter(i => String(i.faculty || '').toLowerCase().includes("kiến trúc"));
-            const ws5 = XLSX.utils.aoa_to_sheet(prepareSheetData(listArch));
+            const ws5 = createFormattedWorksheet(listArch);
             XLSX.utils.book_append_sheet(wb, ws5, "Khoa Kiến Trúc");
 
             const fileName = `Danh_Sach_Diem_Danh_Dap_Ung_4_Khoa_${new Date().toISOString().slice(0, 10)}.xlsx`;
@@ -2305,7 +2328,7 @@
                 setTimeout(() => {
                     const filtered = attendanceData.filter(i => String(i.faculty || '').toLowerCase().includes(f.key));
                     const wb = XLSX.utils.book_new();
-                    const ws = XLSX.utils.aoa_to_sheet(prepareSheetData(filtered));
+                    const ws = createFormattedWorksheet(filtered);
                     XLSX.utils.book_append_sheet(wb, ws, f.title);
                     XLSX.writeFile(wb, `Danh_Sach_Diem_Danh_${f.name}_${new Date().toISOString().slice(0, 10)}.xlsx`);
                 }, idx * 400);
@@ -2349,44 +2372,19 @@
                 return;
             }
 
-            // Định dạng tiêu đề cột
-            let csvContent = "\uFEFF"; // Byte Order Mark (BOM) để Excel đọc đúng tiếng Việt UTF-8
-            csvContent += "STT,Thời Gian,Mã Sự Kiện,MSSV,Họ và Tên,Lớp,Khoa,Khoảng Cách,Thiết Bị,Tọa độ sự kiện,Số Điện Thoại,Gmail,Tên Sự Kiện,IP Máy\r\n";
+            if (typeof XLSX === 'undefined') {
+                alert("Đang nạp thư viện Excel... Vui lòng thử lại sau vài giây!");
+                return;
+            }
 
-            filtered.forEach((item, idx) => {
-                const row = [
-                    idx + 1,
-                    `"${item.timestamp}"`,
-                    `"${item.code}"`,
-                    `"${item.studentCode}"`,
-                    `"${item.name}"`,
-                    `"${item.className || ''}"`,
-                    `"${item.faculty || ''}"`,
-                    `"${item.distance || ''}"`,
-                    `"${item.device || ''}"`,
-                    `"${item.coords || ''}"`,
-                    `"${item.phoneNumber || ''}"`,
-                    `"${item.email || ''}"`,
-                    `"${item.title || ''}"`,
-                    `"${item.ip || ''}"`
-                ];
-                csvContent += row.join(",") + "\r\n";
-            });
+            const wb = XLSX.utils.book_new();
+            const ws = createFormattedWorksheet(filtered);
+            XLSX.utils.book_append_sheet(wb, ws, "Danh Sách Lọc");
 
-            // Tạo link tải file
-            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-            const link = document.createElement("a");
-            const url = URL.createObjectURL(blob);
-            link.setAttribute("href", url);
-            
             let facTag = facultyFilter ? facultyFilter.replace(/\s+/g, '_') : 'Tat_Ca_Khoa';
             let actTag = actFilter ? actFilter.toUpperCase() : 'Tat_Ca_Su_Kien';
-            const filename = `Danh_Sach_Diem_Danh_${facTag}_${actTag}_${new Date().toISOString().slice(0,10)}.csv`;
-            link.setAttribute("download", filename);
-            link.style.visibility = 'hidden';
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
+            const filename = `Danh_Sach_Diem_Danh_${facTag}_${actTag}_${new Date().toISOString().slice(0, 10)}.xlsx`;
+            XLSX.writeFile(wb, filename);
         }
 
         function printQr(code, title, radius) {
