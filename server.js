@@ -14,6 +14,8 @@ if (!fs.existsSync(DATA_DIR)) {
 
 const ACTIVITIES_FILE = path.join(DATA_DIR, 'activities.json');
 const RECORDS_FILE = path.join(DATA_DIR, 'records.json');
+const ACCOUNTS_FILE = path.join(DATA_DIR, 'accounts.json');
+const CONFIG_FILE = path.join(DATA_DIR, 'admin_config.json');
 
 // Khởi tạo PostgreSQL Pool nếu có DATABASE_URL
 let pool = null;
@@ -57,10 +59,40 @@ if (DATABASE_URL) {
             device_uuid TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
+
+        CREATE TABLE IF NOT EXISTS accounts (
+            username VARCHAR(100) PRIMARY KEY,
+            password TEXT NOT NULL,
+            role VARCHAR(20) NOT NULL DEFAULT 'staff',
+            status VARCHAR(20) NOT NULL DEFAULT 'approved',
+            reg_date TEXT,
+            is_default BOOLEAN DEFAULT FALSE,
+            otp_code VARCHAR(10)
+        );
+
+        CREATE TABLE IF NOT EXISTS system_config (
+            key_name VARCHAR(100) PRIMARY KEY,
+            value_text TEXT
+        );
     `;
 
     pool.query(initDbSql)
-        .then(() => console.log('✅ Khởi tạo PostgreSQL Database (Bảng activities & checkins) thành công!'))
+        .then(async () => {
+            console.log('✅ Khởi tạo PostgreSQL Database (Bảng activities, checkins, accounts, system_config) thành công!');
+            // Seed tài khoản mặc định admin nếu chưa có
+            try {
+                const res = await pool.query("SELECT COUNT(*) FROM accounts");
+                if (parseInt(res.rows[0].count) === 0) {
+                    await pool.query(
+                        "INSERT INTO accounts (username, password, role, status, reg_date, is_default) VALUES ($1, $2, $3, $4, $5, $6)",
+                        ['admin', 'admin123', 'super', 'approved', 'Hệ thống mặc định', true]
+                    );
+                    console.log('✅ Đã tạo tài khoản khởi tạo: admin / admin123 (Super Admin)');
+                }
+            } catch (e) {
+                console.error("Lỗi seed tài khoản mặc định:", e);
+            }
+        })
         .catch(err => console.error('❌ Lỗi khởi tạo PostgreSQL Tables:', err));
 } else {
     console.log('ℹ️ Không tìm thấy DATABASE_URL, đang chạy chế độ lưu file JSON nội bộ.');
@@ -78,15 +110,13 @@ function getLocalIp() {
     return 'localhost';
 }
 
-// Helpers lấy dữ liệu sự kiện
+// Helpers lấy/lưu dữ liệu sự kiện
 async function dbGetActivities() {
     if (pool) {
         try {
             const res = await pool.query('SELECT code, title, description, location_address as "locationAddress", latitude, longitude, radius_meters as "radiusMeters", start_time as "startTime", end_time as "endTime" FROM activities ORDER BY created_at DESC');
             return res.rows;
-        } catch (e) {
-            console.error('Lỗi đọc activities từ SQL:', e);
-        }
+        } catch (e) { console.error('Lỗi đọc activities từ SQL:', e); }
     }
     if (fs.existsSync(ACTIVITIES_FILE)) {
         try { return JSON.parse(fs.readFileSync(ACTIVITIES_FILE, 'utf8')); } catch (e) {}
@@ -118,23 +148,19 @@ async function dbSaveActivities(activitiesList) {
                 ]);
             }
             return true;
-        } catch (e) {
-            console.error('Lỗi ghi activities vào SQL:', e);
-        }
+        } catch (e) { console.error('Lỗi ghi activities vào SQL:', e); }
     }
     fs.writeFileSync(ACTIVITIES_FILE, JSON.stringify(activitiesList, null, 2), 'utf8');
     return true;
 }
 
-// Helpers lấy dữ liệu điểm danh
+// Helpers lấy/lưu điểm danh
 async function dbGetCheckins() {
     if (pool) {
         try {
             const res = await pool.query('SELECT timestamp, code, title, student_code as "studentCode", name, class_name as "className", faculty, phone_number as "phoneNumber", email, coords, distance, device, ip, device_uuid as "deviceUuid" FROM checkins ORDER BY id DESC');
             return res.rows;
-        } catch (e) {
-            console.error('Lỗi đọc checkins từ SQL:', e);
-        }
+        } catch (e) { console.error('Lỗi đọc checkins từ SQL:', e); }
     }
     if (fs.existsSync(RECORDS_FILE)) {
         try { return JSON.parse(fs.readFileSync(RECORDS_FILE, 'utf8')); } catch (e) {}
@@ -156,9 +182,7 @@ async function dbSaveCheckin(record) {
                 record.distance || '', record.device || '', record.ip || '', record.deviceUuid || ''
             ]);
             return true;
-        } catch (e) {
-            console.error('Lỗi ghi checkin vào SQL:', e);
-        }
+        } catch (e) { console.error('Lỗi ghi checkin vào SQL:', e); }
     }
     let list = [];
     if (fs.existsSync(RECORDS_FILE)) {
@@ -166,6 +190,205 @@ async function dbSaveCheckin(record) {
     }
     list.unshift(record);
     fs.writeFileSync(RECORDS_FILE, JSON.stringify(list, null, 2), 'utf8');
+    return true;
+}
+
+// Helpers Quản Lý Tài Khoản (Accounts)
+async function dbGetAccounts() {
+    if (pool) {
+        try {
+            const res = await pool.query('SELECT username, password, role, status, reg_date as "regDate", is_default as "isDefault" FROM accounts ORDER BY is_default DESC, reg_date ASC');
+            return res.rows;
+        } catch (e) { console.error('Lỗi đọc accounts từ SQL:', e); }
+    }
+    if (fs.existsSync(ACCOUNTS_FILE)) {
+        try { return JSON.parse(fs.readFileSync(ACCOUNTS_FILE, 'utf8')); } catch (e) {}
+    }
+    return [{ username: 'admin', password: 'admin123', role: 'super', status: 'approved', regDate: 'Mặc định hệ thống', isDefault: true }];
+}
+
+async function dbSaveAccountsLocal(list) {
+    fs.writeFileSync(ACCOUNTS_FILE, JSON.stringify(list, null, 2), 'utf8');
+}
+
+async function dbLogin(username, password) {
+    const userClean = (username || '').trim().toLowerCase();
+    const pwdClean = (password || '').trim();
+
+    if (pool) {
+        try {
+            const res = await pool.query('SELECT username, password, role, status FROM accounts WHERE LOWER(username) = $1', [userClean]);
+            if (res.rows.length === 0) {
+                return { status: 'error', message: 'Tên đăng nhập / Email không tồn tại!' };
+            }
+            const acc = res.rows[0];
+            if (acc.password !== pwdClean) {
+                return { status: 'error', message: 'Mật khẩu không chính xác!' };
+            }
+            if (acc.status === 'pending') {
+                return { status: 'error', message: 'Tài khoản của bạn đang chờ Super Admin phê duyệt!' };
+            }
+            return { status: 'success', role: acc.role, username: acc.username };
+        } catch (e) { console.error('Lỗi login SQL:', e); }
+    }
+
+    // Fallback local
+    const list = await dbGetAccounts();
+    const acc = list.find(a => String(a.username || '').toLowerCase() === userClean);
+    if (!acc) return { status: 'error', message: 'Tên đăng nhập không tồn tại!' };
+    if (acc.password !== pwdClean) return { status: 'error', message: 'Mật khẩu không chính xác!' };
+    if (acc.status === 'pending') return { status: 'error', message: 'Tài khoản đang chờ Super Admin phê duyệt!' };
+    return { status: 'success', role: acc.role, username: acc.username };
+}
+
+async function dbRegister(username, password, role, adminCode) {
+    const userClean = (username || '').trim().toLowerCase();
+    const pwdClean = (password || '').trim();
+    if (!userClean || !pwdClean) return { status: 'error', message: 'Vui lòng điền tên đăng nhập và mật khẩu!' };
+
+    const currentAdminCode = await dbGetAdminCode();
+    if (role === 'super' && adminCode !== currentAdminCode) {
+        return { status: 'error', message: 'Mã Admin bảo mật không chính xác!' };
+    }
+
+    const regDate = new Date().toLocaleString('vi-VN');
+    const status = (role === 'super') ? 'approved' : 'pending';
+
+    if (pool) {
+        try {
+            const checkRes = await pool.query('SELECT username FROM accounts WHERE LOWER(username) = $1', [userClean]);
+            if (checkRes.rows.length > 0) {
+                return { status: 'error', message: 'Tên đăng nhập / Email này đã tồn tại!' };
+            }
+
+            await pool.query(`
+                INSERT INTO accounts (username, password, role, status, reg_date, is_default)
+                VALUES ($1, $2, $3, $4, $5, $6)
+            `, [userClean, pwdClean, role, status, regDate, false]);
+
+            return { status: 'success', requiresApproval: (status === 'pending'), message: 'Đăng ký thành công!' };
+        } catch (e) { console.error('Lỗi register SQL:', e); }
+    }
+
+    // Fallback local
+    const list = await dbGetAccounts();
+    if (list.some(a => String(a.username || '').toLowerCase() === userClean)) {
+        return { status: 'error', message: 'Tên đăng nhập này đã tồn tại!' };
+    }
+    list.push({ username: userClean, password: pwdClean, role: role, status: status, regDate: regDate, isDefault: false });
+    await dbSaveAccountsLocal(list);
+    return { status: 'success', requiresApproval: (status === 'pending'), message: 'Đăng ký thành công!' };
+}
+
+async function dbApproveAccount(username) {
+    const uClean = (username || '').trim().toLowerCase();
+    if (pool) {
+        try {
+            await pool.query("UPDATE accounts SET status = 'approved' WHERE LOWER(username) = $1", [uClean]);
+            return { status: 'success', message: 'Đã phê duyệt tài khoản thành công!' };
+        } catch (e) { console.error('Lỗi approve SQL:', e); }
+    }
+    const list = await dbGetAccounts();
+    const acc = list.find(a => String(a.username || '').toLowerCase() === uClean);
+    if (acc) {
+        acc.status = 'approved';
+        await dbSaveAccountsLocal(list);
+    }
+    return { status: 'success', message: 'Đã phê duyệt tài khoản!' };
+}
+
+async function dbDeleteAccount(username) {
+    const uClean = (username || '').trim().toLowerCase();
+    if (uClean === 'admin') return { status: 'error', message: 'Không thể xóa tài khoản Admin hệ thống!' };
+
+    if (pool) {
+        try {
+            await pool.query("DELETE FROM accounts WHERE LOWER(username) = $1 AND is_default = false", [uClean]);
+            return { status: 'success', message: 'Đã xóa tài khoản thành công!' };
+        } catch (e) { console.error('Lỗi delete SQL:', e); }
+    }
+    let list = await dbGetAccounts();
+    list = list.filter(a => String(a.username || '').toLowerCase() !== uClean || a.isDefault);
+    await dbSaveAccountsLocal(list);
+    return { status: 'success', message: 'Đã xóa tài khoản!' };
+}
+
+async function dbSendOtp(emailOrUsername) {
+    const target = (emailOrUsername || '').trim().toLowerCase();
+    if (!target) return { status: 'error', message: 'Vui lòng nhập Email / Tên đăng nhập!' };
+
+    const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
+
+    if (pool) {
+        try {
+            const res = await pool.query('SELECT username FROM accounts WHERE LOWER(username) = $1 OR LOWER(username) LIKE $2', [target, `%${target}%`]);
+            if (res.rows.length === 0) {
+                return { status: 'error', message: 'Tên đăng nhập không tồn tại trong CSDL SQL!' };
+            }
+            const foundUser = res.rows[0].username;
+            await pool.query('UPDATE accounts SET otp_code = $1 WHERE username = $2', [otpCode, foundUser]);
+            return { status: 'success', otp: otpCode, message: 'Đã khởi tạo mã OTP xác nhận!' };
+        } catch (e) { console.error('Lỗi sendOtp SQL:', e); }
+    }
+
+    const list = await dbGetAccounts();
+    const acc = list.find(a => String(a.username || '').toLowerCase().includes(target));
+    if (!acc) return { status: 'error', message: 'Tên đăng nhập không tồn tại!' };
+    acc.otp_code = otpCode;
+    await dbSaveAccountsLocal(list);
+    return { status: 'success', otp: otpCode, message: 'Đã khởi tạo mã OTP!' };
+}
+
+async function dbVerifyOtp(emailOrUsername, otp) {
+    const target = (emailOrUsername || '').trim().toLowerCase();
+    const otpClean = (otp || '').trim();
+
+    if (pool) {
+        try {
+            const res = await pool.query('SELECT username, password, otp_code FROM accounts WHERE LOWER(username) = $1 OR LOWER(username) LIKE $2', [target, `%${target}%`]);
+            if (res.rows.length === 0) return { status: 'error', message: 'Tài khoản không tồn tại!' };
+            const acc = res.rows[0];
+            if (!acc.otp_code || acc.otp_code !== otpClean) {
+                return { status: 'error', message: 'Mã OTP không chính xác!' };
+            }
+            return { status: 'success', password: acc.password, message: 'Xác thực OTP thành công!' };
+        } catch (e) { console.error('Lỗi verifyOtp SQL:', e); }
+    }
+
+    const list = await dbGetAccounts();
+    const acc = list.find(a => String(a.username || '').toLowerCase().includes(target));
+    if (!acc) return { status: 'error', message: 'Tài khoản không tồn tại!' };
+    if (!acc.otp_code || acc.otp_code !== otpClean) return { status: 'error', message: 'Mã OTP không chính xác!' };
+    return { status: 'success', password: acc.password, message: 'Xác thực OTP thành công!' };
+}
+
+async function dbGetAdminCode() {
+    if (pool) {
+        try {
+            const res = await pool.query("SELECT value_text FROM system_config WHERE key_name = 'adminCode'");
+            if (res.rows.length > 0) return res.rows[0].value_text;
+        } catch (e) {}
+    }
+    if (fs.existsSync(CONFIG_FILE)) {
+        try {
+            const cfg = JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf8'));
+            return cfg.adminCode || 'admin123';
+        } catch (e) {}
+    }
+    return 'admin123';
+}
+
+async function dbSetAdminCode(newCode) {
+    if (pool) {
+        try {
+            await pool.query(`
+                INSERT INTO system_config (key_name, value_text) VALUES ('adminCode', $1)
+                ON CONFLICT (key_name) DO UPDATE SET value_text = EXCLUDED.value_text
+            `, [newCode]);
+            return true;
+        } catch (e) { console.error('Lỗi setAdminCode SQL:', e); }
+    }
+    fs.writeFileSync(CONFIG_FILE, JSON.stringify({ adminCode: newCode }, null, 2), 'utf8');
     return true;
 }
 
@@ -225,6 +448,44 @@ const server = http.createServer(async (req, res) => {
                 return;
             }
 
+            if (action === 'getAccounts') {
+                const list = await dbGetAccounts();
+                res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+                res.end(JSON.stringify(list));
+                return;
+            }
+
+            if (action === 'approveAccount') {
+                const u = parsedUrl.searchParams.get('username') || '';
+                const result = await dbApproveAccount(u);
+                res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+                res.end(JSON.stringify(result));
+                return;
+            }
+
+            if (action === 'deleteAccount') {
+                const u = parsedUrl.searchParams.get('username') || '';
+                const result = await dbDeleteAccount(u);
+                res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+                res.end(JSON.stringify(result));
+                return;
+            }
+
+            if (action === 'getAdminCode') {
+                const code = await dbGetAdminCode();
+                res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+                res.end(JSON.stringify({ status: 'success', code: code }));
+                return;
+            }
+
+            if (action === 'setAdminCode') {
+                const newCode = parsedUrl.searchParams.get('code') || '';
+                await dbSetAdminCode(newCode);
+                res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+                res.end(JSON.stringify({ status: 'success', message: 'Đã cập nhật mã Admin mới' }));
+                return;
+            }
+
             if (action === 'exportCsv' || pathname === '/api/export-csv') {
                 let csv = '\uFEFFSTT,Thời Gian,Mã Sự Kiện,MSSV,Họ và Tên,Lớp,Khoa,Khoảng Cách,Thiết Bị,Tọa độ sự kiện,Số Điện Thoại,Gmail,Tên Sự Kiện,IP Máy\r\n';
                 const list = await dbGetCheckins();
@@ -261,6 +522,37 @@ const server = http.createServer(async (req, res) => {
                     }
 
                     const json = JSON.parse(body);
+
+                    if (action === 'login' || json.action === 'login') {
+                        const result = await dbLogin(json.username, json.password);
+                        res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+                        res.end(JSON.stringify(result));
+                        return;
+                    }
+
+                    if (action === 'registerAccount' || json.action === 'registerAccount') {
+                        const result = await dbRegister(json.username, json.password, json.role, json.adminCode);
+                        res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+                        res.end(JSON.stringify(result));
+                        return;
+                    }
+
+                    if (action === 'sendOtp' || json.action === 'sendOtp') {
+                        const target = json.email || json.username || '';
+                        const result = await dbSendOtp(target);
+                        res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+                        res.end(JSON.stringify(result));
+                        return;
+                    }
+
+                    if (action === 'verifyOtp' || json.action === 'verifyOtp') {
+                        const target = json.email || json.username || '';
+                        const result = await dbVerifyOtp(target, json.otp);
+                        res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+                        res.end(JSON.stringify(result));
+                        return;
+                    }
+
                     if (json.action === 'saveActivities') {
                         const toSave = Array.isArray(json) ? json : (json.activities || []);
                         await dbSaveActivities(toSave);
@@ -320,6 +612,6 @@ server.listen(PORT, '0.0.0.0', () => {
     console.log('==================================================================');
     console.log('Web Server backend GPS Attendance (Node.js + PostgreSQL) đang chạy!');
     console.log(`- Truy cập trên máy tính: http://localhost:${PORT}`);
-    console.log(`- Truy cập từ điện thoại (cùng Wi-Fi): http://${localIp}:${PORT}`);
+    console.log(`- Truy cập từ điện thoại (cung Wi-Fi): http://${localIp}:${PORT}`);
     console.log('==================================================================');
 });

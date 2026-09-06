@@ -675,51 +675,31 @@
                 return;
             }
 
-            // Kiểm tra xem tên đăng nhập có hợp lệ không
-            const superUsers = ["hongnhung@muce.edu.vn", "dhxdmtmuce"];
-            const staffUsers = ["nguyennuhongnhung", "dhxhmt", "nguyenthithuhien"];
-            const allUsers = superUsers.concat(staffUsers);
-
-            if (!allUsers.includes(user)) {
-                errorEl.textContent = "Tên đăng nhập không tồn tại trong hệ thống quản trị!";
-                errorEl.classList.remove('d-none');
-                return;
-            }
-
-            // Kiểm tra bảo mật: Email phải bắt đầu bằng tên đăng nhập hoặc trùng khớp hoàn toàn
-            let emailPrefix = email.split('@')[0];
-            let userPrefix = user.split('@')[0];
-
-            if (emailPrefix !== userPrefix) {
-                errorEl.textContent = "Email nhận mã OTP không khớp với tên đăng nhập của tài khoản này!";
-                errorEl.classList.remove('d-none');
-                return;
-            }
-
             btn.disabled = true;
-            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-2"></i>Đang gửi OTP...';
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-2"></i>Đang khởi tạo OTP...';
 
             try {
                 const response = await fetch(CONFIG.googleScriptUrl + '?action=sendOtp', {
                     method: 'POST',
-                    body: JSON.stringify({ email: email })
+                    body: JSON.stringify({ username: user, email: email })
                 });
                 const result = await response.json();
 
                 if (result.status === 'success') {
+                    sentEl.innerHTML = `<i class="fa-solid fa-check-circle me-1"></i> Mã OTP khôi phục đã được tạo thành công! <strong>(Mã OTP của bạn: <span class="fs-5 text-danger">${result.otp}</span>)</strong>`;
                     sentEl.classList.remove('d-none');
                     document.getElementById('otpInputContainer').classList.remove('d-none');
                     btn.classList.add('d-none'); // Ẩn nút gửi OTP đi
                 } else {
                     btn.disabled = false;
                     btn.innerHTML = 'Gửi Mã OTP Về Gmail';
-                    errorEl.textContent = "Lỗi hệ thống gửi mail: " + result.message;
+                    errorEl.textContent = result.message || "Lỗi hệ thống khởi tạo OTP!";
                     errorEl.classList.remove('d-none');
                 }
             } catch (err) {
                 btn.disabled = false;
                 btn.innerHTML = 'Gửi Mã OTP Về Gmail';
-                errorEl.textContent = "Lỗi kết nối Server Google Sheets! Vui lòng thử lại sau.";
+                errorEl.textContent = "Lỗi kết nối máy chủ! Vui lòng thử lại sau.";
                 errorEl.classList.remove('d-none');
                 console.error("Lỗi gửi OTP:", err);
             }
@@ -750,28 +730,20 @@
             try {
                 const response = await fetch(CONFIG.googleScriptUrl + '?action=verifyOtp', {
                     method: 'POST',
-                    body: JSON.stringify({ email: email, otp: otp })
+                    body: JSON.stringify({ username: user, email: email, otp: otp })
                 });
                 const result = await response.json();
 
                 if (result.status === 'success') {
-                    // Xác thực thành công! Lấy mật khẩu tương ứng để hiển thị
-                    let passwordText = "";
-                    if (user === "hongnhung@muce.edu.vn" || user === "dhxdmtmuce") {
-                        passwordText = "<strong>Mật khẩu của bạn là:</strong> <span class='text-danger fw-bold fs-5'>admin123</span> hoặc <span class='text-danger fw-bold fs-5'>nhung2011</span> (Quyền Super Admin)";
-                    } else {
-                        passwordText = "<strong>Mật khẩu của bạn là:</strong> <span class='text-danger fw-bold fs-5'>admin123</span> (Quyền Nhân Viên)";
-                    }
-
                     successEl.innerHTML = `<h6 class="alert-heading fw-bold"><i class="fa-solid fa-circle-check me-2"></i>Xác thực OTP Thành Công!</h6>` +
-                                          `<p class="mb-0 mt-2">${passwordText}</p>`;
+                                          `<p class="mb-0 mt-2"><strong>Mật khẩu tài khoản của bạn là:</strong> <span class='text-danger fw-bold fs-4'>${result.password}</span></p>`;
                     successEl.classList.remove('d-none');
                     document.getElementById('otpInputContainer').classList.add('d-none');
                     document.getElementById('forgotSentAlert').classList.add('d-none');
                 } else {
                     btn.disabled = false;
                     btn.innerHTML = 'Xác Nhận & Lấy Lại Mật Khẩu';
-                    errorEl.textContent = result.message;
+                    errorEl.textContent = result.message || "Mã OTP không chính xác!";
                     errorEl.classList.remove('d-none');
                 }
             } catch (err) {
@@ -1225,27 +1197,14 @@
             const tbody = document.getElementById('accountsTableBody');
             if (!tbody) return;
 
-            const defaultAccounts = [
-                { username: "Hongnhung@muce.edu.vn", password: "admin123 / nhung2011", role: "super", regDate: "Mặc định hệ thống", status: "approved", isDefault: true },
-                { username: "dhxdmtmuce", password: "admin123 / nhung2011", role: "super", regDate: "Mặc định hệ thống", status: "approved", isDefault: true },
-                { username: "nguyennuhongnhung", password: "admin123", role: "staff", regDate: "Mặc định hệ thống", status: "approved", isDefault: true },
-                { username: "dhxhmt", password: "admin123", role: "staff", regDate: "Mặc định hệ thống", status: "approved", isDefault: true },
-                { username: "nguyenthithuhien", password: "admin123", role: "staff", regDate: "Mặc định hệ thống", status: "approved", isDefault: true }
-            ];
+            const list = data || [];
 
-            const combinedList = [...defaultAccounts];
-            (data || []).forEach(item => {
-                if (item && item.username && !combinedList.some(a => a.username.toLowerCase() === item.username.toLowerCase())) {
-                    combinedList.push(item);
-                }
-            });
-
-            if (combinedList.length === 0) {
+            if (list.length === 0) {
                 tbody.innerHTML = `<tr><td colspan="7" class="text-center py-4 text-muted">Chưa có tài khoản đăng ký nào.</td></tr>`;
                 return;
             }
 
-            tbody.innerHTML = combinedList.map((item, idx) => {
+            tbody.innerHTML = list.map((item, idx) => {
                 const isPending = item.status === 'pending';
                 const statusBadge = isPending 
                     ? `<span class="badge bg-warning text-dark"><i class="fa-solid fa-clock me-1"></i>Chờ duyệt</span>`
@@ -1256,11 +1215,11 @@
                     : `<span class="badge bg-info text-dark">Staff / Nhân viên</span>`;
 
                 let actionBtns = '';
-                if (item.isDefault) {
+                if (item.isDefault || item.username === 'admin') {
                     actionBtns = `<span class="badge bg-secondary"><i class="fa-solid fa-shield-halved me-1"></i>Tài khoản hệ thống</span>`;
                 } else if (isPending) {
                     actionBtns = `<button class="btn btn-sm btn-success fw-bold me-1" onclick="approveAccount('${item.username}')"><i class="fa-solid fa-check me-1"></i>Phê Duyệt</button>
-                                   <button class="btn btn-sm btn-outline-danger" onclick="deleteAccount('${item.username}')"><i class="fa-solid fa-trash"></i></button>`;
+                                   <button class="btn btn-sm btn-outline-danger" onclick="deleteAccount('${item.username}')"><i class="fa-solid fa-trash"></i> Xóa</button>`;
                 } else {
                     actionBtns = `<button class="btn btn-sm btn-outline-danger" onclick="deleteAccount('${item.username}')"><i class="fa-solid fa-trash"></i> Xóa</button>`;
                 }
