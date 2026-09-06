@@ -313,6 +313,34 @@ async function dbDeleteAccount(username) {
     return { status: 'success', message: 'Đã xóa tài khoản!' };
 }
 
+async function dbUpdateAccount(username, password, role, status) {
+    const uClean = (username || '').trim().toLowerCase();
+    const pwdClean = (password || '').trim();
+    const roleClean = (role || 'staff').trim();
+    const statusClean = (status || 'approved').trim();
+
+    if (!uClean) return { status: 'error', message: 'Tên đăng nhập không hợp lệ!' };
+
+    if (pool) {
+        try {
+            await pool.query(
+                "UPDATE accounts SET password = $1, role = $2, status = $3 WHERE LOWER(username) = $4",
+                [pwdClean, roleClean, statusClean, uClean]
+            );
+            return { status: 'success', message: 'Đã cập nhật thông tin tài khoản thành công!' };
+        } catch (e) { console.error('Lỗi update account SQL:', e); }
+    }
+    const list = await dbGetAccounts();
+    const acc = list.find(a => String(a.username || '').toLowerCase() === uClean);
+    if (acc) {
+        if (pwdClean) acc.password = pwdClean;
+        acc.role = roleClean;
+        acc.status = statusClean;
+        await dbSaveAccountsLocal(list);
+    }
+    return { status: 'success', message: 'Đã cập nhật tài khoản!' };
+}
+
 async function dbSendOtp(emailOrUsername) {
     const target = (emailOrUsername || '').trim().toLowerCase();
     if (!target) return { status: 'error', message: 'Vui lòng nhập Email / Tên đăng nhập!' };
@@ -471,6 +499,17 @@ const server = http.createServer(async (req, res) => {
                 return;
             }
 
+            if (action === 'updateAccount' || action === 'editAccount') {
+                const u = parsedUrl.searchParams.get('username') || '';
+                const p = parsedUrl.searchParams.get('password') || '';
+                const r = parsedUrl.searchParams.get('role') || 'staff';
+                const s = parsedUrl.searchParams.get('status') || 'approved';
+                const result = await dbUpdateAccount(u, p, r, s);
+                res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+                res.end(JSON.stringify(result));
+                return;
+            }
+
             if (action === 'getAdminCode') {
                 const code = await dbGetAdminCode();
                 res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
@@ -548,6 +587,13 @@ const server = http.createServer(async (req, res) => {
                     if (action === 'verifyOtp' || json.action === 'verifyOtp') {
                         const target = json.email || json.username || '';
                         const result = await dbVerifyOtp(target, json.otp);
+                        res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+                        res.end(JSON.stringify(result));
+                        return;
+                    }
+
+                    if (action === 'updateAccount' || json.action === 'updateAccount' || action === 'editAccount') {
+                        const result = await dbUpdateAccount(json.username, json.password, json.role, json.status);
                         res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
                         res.end(JSON.stringify(result));
                         return;

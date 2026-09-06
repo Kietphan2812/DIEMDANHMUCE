@@ -451,6 +451,48 @@
         </div>
     </div>
 
+    <!-- Modal Chỉnh Sửa Tài Khoản -->
+    <div class="modal fade" id="editAccountModal" tabindex="-1" aria-labelledby="editAccountModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content shadow-lg border-0" style="border-radius: 16px;">
+                <div class="modal-header bg-dark text-white py-3" style="border-top-left-radius: 16px; border-top-right-radius: 16px;">
+                    <h5 class="modal-title fw-bold" id="editAccountModalLabel"><i class="fa-solid fa-user-pen text-warning me-2"></i>Chỉnh Sửa Tài Khoản</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <form id="editAccountForm" onsubmit="saveEditAccount(event)">
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Tên đăng nhập / Email:</label>
+                            <input type="text" class="form-control font-monospace bg-light" id="editAccUsername" readonly />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Mật khẩu mới:</label>
+                            <input type="text" class="form-control font-monospace" id="editAccPassword" required />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Vai trò:</label>
+                            <select class="form-select" id="editAccRole">
+                                <option value="staff">Staff / Nhân viên</option>
+                                <option value="super">Super Admin / Quản trị viên</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Trạng thái phê duyệt:</label>
+                            <select class="form-select" id="editAccStatus">
+                                <option value="approved">Đã phê duyệt (Được đăng nhập)</option>
+                                <option value="pending">Chờ phê duyệt (Khóa tài khoản)</option>
+                            </select>
+                        </div>
+                        <div class="d-flex justify-content-end gap-2 mt-4">
+                            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Hủy</button>
+                            <button type="submit" class="btn btn-warning fw-bold text-dark px-4" id="btnSaveAccountEdit"><i class="fa-solid fa-save me-1"></i>Lưu Thay Đổi</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script src="https://unpkg.com/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
@@ -1227,13 +1269,35 @@
                     : `<span class="badge bg-info text-dark">Staff / Nhân viên</span>`;
 
                 let actionBtns = '';
+                const uEsc = item.username.replace(/'/g, "\\'");
                 if (item.isDefault || item.username === 'admin') {
-                    actionBtns = `<span class="badge bg-secondary"><i class="fa-solid fa-shield-halved me-1"></i>Tài khoản hệ thống</span>`;
+                    actionBtns = `
+                        <button class="btn btn-sm btn-outline-warning text-dark fw-bold me-1" onclick="openEditAccountModal('${uEsc}')">
+                            <i class="fa-solid fa-pen-to-square me-1"></i> Sửa Mật Khẩu
+                        </button>
+                        <span class="badge bg-secondary"><i class="fa-solid fa-shield-halved me-1"></i>Hệ thống</span>
+                    `;
                 } else if (isPending) {
-                    actionBtns = `<button class="btn btn-sm btn-success fw-bold me-1" onclick="approveAccount('${item.username}')"><i class="fa-solid fa-check me-1"></i>Phê Duyệt</button>
-                                   <button class="btn btn-sm btn-outline-danger" onclick="deleteAccount('${item.username}')"><i class="fa-solid fa-trash"></i> Xóa</button>`;
+                    actionBtns = `
+                        <button class="btn btn-sm btn-success fw-bold me-1" onclick="approveAccount('${uEsc}')">
+                            <i class="fa-solid fa-check me-1"></i> Phê Duyệt
+                        </button>
+                        <button class="btn btn-sm btn-outline-warning text-dark fw-bold me-1" onclick="openEditAccountModal('${uEsc}')">
+                            <i class="fa-solid fa-pen-to-square me-1"></i> Sửa
+                        </button>
+                        <button class="btn btn-sm btn-danger fw-bold" onclick="deleteAccount('${uEsc}')">
+                            <i class="fa-solid fa-trash me-1"></i> Xóa
+                        </button>
+                    `;
                 } else {
-                    actionBtns = `<button class="btn btn-sm btn-outline-danger" onclick="deleteAccount('${item.username}')"><i class="fa-solid fa-trash"></i> Xóa</button>`;
+                    actionBtns = `
+                        <button class="btn btn-sm btn-outline-warning text-dark fw-bold me-1" onclick="openEditAccountModal('${uEsc}')">
+                            <i class="fa-solid fa-pen-to-square me-1"></i> Sửa
+                        </button>
+                        <button class="btn btn-sm btn-danger fw-bold" onclick="deleteAccount('${uEsc}')">
+                            <i class="fa-solid fa-trash me-1"></i> Xóa
+                        </button>
+                    `;
                 }
 
                 return `
@@ -1248,6 +1312,77 @@
                     </tr>
                 `;
             }).join('');
+        }
+
+        let editModalInstance = null;
+        function openEditAccountModal(username) {
+            const acc = (accountsData || []).find(a => a.username === username);
+            if (!acc) {
+                alert('Không tìm thấy dữ liệu tài khoản!');
+                return;
+            }
+
+            document.getElementById('editAccUsername').value = acc.username || '';
+            document.getElementById('editAccPassword').value = acc.password || '';
+            document.getElementById('editAccRole').value = acc.role || 'staff';
+            document.getElementById('editAccStatus').value = acc.status || 'approved';
+
+            if (!editModalInstance) {
+                editModalInstance = new bootstrap.Modal(document.getElementById('editAccountModal'));
+            }
+            editModalInstance.show();
+        }
+
+        async function saveEditAccount(e) {
+            e.preventDefault();
+            const username = document.getElementById('editAccUsername').value;
+            const password = document.getElementById('editAccPassword').value.trim();
+            const role = document.getElementById('editAccRole').value;
+            const status = document.getElementById('editAccStatus').value;
+
+            if (!password) {
+                alert('Vui lòng nhập mật khẩu mới!');
+                return;
+            }
+
+            const btn = document.getElementById('btnSaveAccountEdit');
+            const origHtml = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-1"></i>Đang lưu...';
+
+            try {
+                const res = await fetch(CONFIG.googleScriptUrl + '?action=updateAccount', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password, role, status })
+                });
+                const data = await res.json();
+                if (data.status === 'success') {
+                    alert('Đã cập nhật thông tin tài khoản thành công!');
+                    if (editModalInstance) editModalInstance.hide();
+                    fetchAccountsList();
+                } else {
+                    alert('Lỗi cập nhật: ' + (data.message || 'Thất bại'));
+                }
+            } catch (err) {
+                try {
+                    const resGet = await fetch(CONFIG.googleScriptUrl + '?action=updateAccount&username=' + encodeURIComponent(username) + '&password=' + encodeURIComponent(password) + '&role=' + encodeURIComponent(role) + '&status=' + encodeURIComponent(status) + '&_t=' + Date.now());
+                    const dataGet = await resGet.json();
+                    if (dataGet.status === 'success') {
+                        alert('Đã cập nhật thông tin tài khoản thành công!');
+                        if (editModalInstance) editModalInstance.hide();
+                        fetchAccountsList();
+                    } else {
+                        alert('Lỗi cập nhật: ' + (dataGet.message || 'Thất bại'));
+                    }
+                } catch (e) {
+                    alert('Lỗi kết nối máy chủ!');
+                    console.error(e);
+                }
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = origHtml;
+            }
         }
 
         async function approveAccount(username) {

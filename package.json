@@ -7,9 +7,14 @@
     "start": "node server.js"
   },
   "dependencies": {
-    "pg": "^8.11.3"
+    "pg": "^8.23.0"
   },
-  "keywords": ["gps", "attendance", "nodejs", "postgresql"],
+  "keywords": [
+    "gps",
+    "attendance",
+    "nodejs",
+    "postgresql"
+  ],
   "author": "",
   "license": "ISC"
 }
