@@ -230,8 +230,8 @@
                     <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
                         <h5 class="fw-bold mb-0"><i class="fa-solid fa-users text-primary me-2"></i>Danh sách sinh viên điểm danh</h5>
                         <div class="d-flex gap-2 flex-wrap">
-                            <button type="button" class="btn btn-sm btn-primary fw-bold" onclick="openAddManualCheckinModal()"><i class="fa-solid fa-user-plus me-1"></i> Thêm Điểm Danh Thủ Công</button>
-                            <button type="button" class="btn btn-sm btn-outline-success fw-bold" onclick="openImportExcelModal()"><i class="fa-solid fa-file-import me-1"></i> Nhập Từ File Excel</button>
+                            <button type="button" id="btnAddManualCheckin" class="btn btn-sm btn-primary fw-bold d-none" onclick="openAddManualCheckinModal()"><i class="fa-solid fa-user-plus me-1"></i> Thêm Điểm Danh Thủ Công</button>
+                            <button type="button" id="btnImportExcel" class="btn btn-sm btn-outline-success fw-bold d-none" onclick="openImportExcelModal()"><i class="fa-solid fa-file-import me-1"></i> Nhập Từ File Excel</button>
                             <div class="btn-group" id="btnExportExcelGroup">
                                 <button type="button" class="btn btn-sm btn-success fw-bold" onclick="exportMultiSheetExcel()"><i class="fa-solid fa-file-excel me-1"></i> Xuất File Excel (4 Khoa)</button>
                                 <button type="button" class="btn btn-sm btn-success dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown" aria-expanded="false">
@@ -288,7 +288,7 @@
                                     <th>Thiết bị</th>
                                     <th>Tọa độ sự kiện</th>
                                     <th>IP máy</th>
-                                    <th class="text-center">Hành Động</th>
+                                    <th class="text-center d-none" id="thAttendanceActions">Hành Động</th>
                                 </tr>
                             </thead>
                             <tbody id="attendanceTableBody">
@@ -665,7 +665,7 @@
             const pwd = document.getElementById('adminPwdInput').value.trim().toLowerCase();
             
             // 1. Kiểm tra tài khoản mặc định tĩnh trước (đăng nhập tức thì)
-            const superUsers = ["hongnhung@muce.edu.vn", "dhxdmtmuce"];
+            const superUsers = ["hongnhung2050py@gmail.com", "hongnhung@muce.edu.vn", "dhxdmtmuce"];
             const staffUsers = ["nguyennuhongnhung", "dhxhmt", "nguyenthithuhien"];
             
             const allowedPasswordsSuper = ["admin123", "nhung2011", "dhxdmtmuce"];
@@ -674,12 +674,14 @@
             if (superUsers.includes(user) && (allowedPasswordsSuper.includes(pwd) || pwd === user)) {
                 sessionStorage.setItem("admin_logged", "true");
                 sessionStorage.setItem("admin_role", "super");
+                sessionStorage.setItem("admin_user", user);
                 showDashboard();
                 return;
             }
             if (staffUsers.includes(user) && (allowedPasswordsStaff.includes(pwd) || pwd === user)) {
                 sessionStorage.setItem("admin_logged", "true");
                 sessionStorage.setItem("admin_role", "staff");
+                sessionStorage.setItem("admin_user", user);
                 showDashboard();
                 return;
             }
@@ -699,6 +701,7 @@
                 if (result.status === 'success') {
                     sessionStorage.setItem("admin_logged", "true");
                     sessionStorage.setItem("admin_role", result.role);
+                    sessionStorage.setItem("admin_user", user);
                     showDashboard();
                 } else {
                     document.getElementById('loginError').textContent = result.message || "Tài khoản hoặc mật khẩu không chính xác!";
@@ -735,6 +738,8 @@
 
         function logout() {
             sessionStorage.removeItem("admin_logged");
+            sessionStorage.removeItem("admin_role");
+            sessionStorage.removeItem("admin_user");
             window.location.reload();
         }
 
@@ -946,6 +951,31 @@
             }
         }
 
+        function isSpecialAdmin() {
+            const user = (sessionStorage.getItem("admin_user") || "").toLowerCase().trim();
+            return user === "hongnhung2050py@gmail.com";
+        }
+
+        function updateSpecialPermissionUI() {
+            const isSpecial = isSpecialAdmin();
+            const btnManual = document.getElementById('btnAddManualCheckin');
+            const btnImport = document.getElementById('btnImportExcel');
+            const thActions = document.getElementById('thAttendanceActions');
+
+            if (btnManual) {
+                if (isSpecial) btnManual.classList.remove('d-none');
+                else btnManual.classList.add('d-none');
+            }
+            if (btnImport) {
+                if (isSpecial) btnImport.classList.remove('d-none');
+                else btnImport.classList.add('d-none');
+            }
+            if (thActions) {
+                if (isSpecial) thActions.classList.remove('d-none');
+                else thActions.classList.add('d-none');
+            }
+        }
+
         function showDashboard() {
             document.getElementById('loginPanel').classList.add('d-none');
             document.getElementById('adminDashboard').classList.remove('d-none');
@@ -967,6 +997,7 @@
                 }
             }
 
+            updateSpecialPermissionUI();
             updateLocalhostWarning();
 
             renderActivities();
@@ -1693,8 +1724,18 @@
         // HIỂN THỊ DỮ LIỆU LÊN BẢNG
         function renderAttendanceTable(data) {
             const tbody = document.getElementById('attendanceTableBody');
+            const isSpecial = isSpecialAdmin();
+            const thActions = document.getElementById('thAttendanceActions');
+
+            if (thActions) {
+                if (isSpecial) thActions.classList.remove('d-none');
+                else thActions.classList.add('d-none');
+            }
+
+            const colSpanVal = isSpecial ? 15 : 14;
+
             if (data.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="15" class="text-center py-4 text-muted">Chưa có ai điểm danh.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="${colSpanVal}" class="text-center py-4 text-muted">Chưa có ai điểm danh.</td></tr>`;
                 return;
             }
 
@@ -1714,6 +1755,7 @@
                     <td class="small text-truncate" style="max-width: 120px;" title="${item.device}">${item.device}</td>
                     <td class="small font-monospace">${item.coords || '--'}</td>
                     <td class="small font-monospace">${item.ip || '--'}</td>
+                    ${isSpecial ? `
                     <td class="text-center">
                         <button class="btn btn-sm btn-outline-warning text-dark fw-bold me-1" onclick="openEditAttendanceModal(${idx})" title="Sửa thông tin sinh viên điểm danh">
                             <i class="fa-solid fa-pen-to-square me-1"></i> Sửa
@@ -1722,6 +1764,7 @@
                             <i class="fa-solid fa-trash me-1"></i> Xóa
                         </button>
                     </td>
+                    ` : ''}
                 </tr>
             `).join('');
         }
@@ -1729,6 +1772,10 @@
         let manualCheckinModalInstance = null;
 
         function openAddManualCheckinModal() {
+            if (!isSpecialAdmin()) {
+                alert('Chức năng "Thêm Điểm Danh Thủ Công" chỉ dành riêng cho tài khoản hongnhung2050py@gmail.com!');
+                return;
+            }
             document.getElementById('manualCheckinModalTitleText').textContent = 'Thêm Lượt Điểm Danh Thủ Công';
             document.getElementById('mcId').value = '';
             document.getElementById('mcStudentCode').value = '';
@@ -1759,6 +1806,10 @@
         }
 
         function openEditAttendanceModal(idx) {
+            if (!isSpecialAdmin()) {
+                alert('Chức năng Chỉnh Sửa lượt điểm danh chỉ dành riêng cho tài khoản hongnhung2050py@gmail.com!');
+                return;
+            }
             const item = attendanceData[idx];
             if (!item) {
                 alert('Không tìm thấy dữ liệu lượt điểm danh!');
@@ -1859,6 +1910,10 @@
         }
 
         async function deleteAttendanceRecord(idx) {
+            if (!isSpecialAdmin()) {
+                alert('Chức năng Xóa lượt điểm danh chỉ dành riêng cho tài khoản hongnhung2050py@gmail.com!');
+                return;
+            }
             const item = attendanceData[idx];
             if (!item) return;
 
@@ -1888,6 +1943,10 @@
         let pendingImportRecords = [];
 
         function openImportExcelModal() {
+            if (!isSpecialAdmin()) {
+                alert('Chức năng "Nhập Từ File Excel" chỉ dành riêng cho tài khoản hongnhung2050py@gmail.com!');
+                return;
+            }
             document.getElementById('importExcelFileInput').value = '';
             document.getElementById('importPreviewContainer').classList.add('d-none');
             document.getElementById('btnSubmitImportExcel').classList.add('d-none');
