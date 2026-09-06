@@ -1,0 +1,12 @@
+{
+  "name": "gps-attendance-system",
+  "version": "1.0.0",
+  "description": "Hệ thống điểm danh GPS tự động 24/7",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "keywords": ["gps", "attendance", "nodejs"],
+  "author": "",
+  "license": "ISC"
+}

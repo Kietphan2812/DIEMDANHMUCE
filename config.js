@@ -3,13 +3,13 @@ const CONFIG = {
     // Mật khẩu trang quản trị (Admin Panel)
     adminPassword: "admin123",
 
-    // Link Google Sheets kết quả (để Admin click xem trực tiếp)
-    googleSheetUrl: "https://docs.google.com/spreadsheets/d/12IFrgjYT7qGWXe9lXtcE-oRrmz-BU9ga-m9nYacTlCA/edit",
+    // Link xem kết quả trực tiếp
+    googleSheetUrl: "#",
 
-    // Link Web App Google Apps Script để ghi và đọc dữ liệu điểm danh
-    googleScriptUrl: "https://script.google.com/macros/s/AKfycbxzYoL4hhUYiBaQfZFI7o3oPIU8OWx7ZYrc3v-hgu_EXDu-QKpaWfOQCk8nxqmaqK6i/exec",
+    // Endpoint API Backend C# nội bộ để lưu và đọc dữ liệu điểm danh
+    googleScriptUrl: "/api",
 
-    // 2. DANH SÁCH CÁC SỰ KIỆN / HOẠT ĐỘNG MẶC ĐỊNH (Để trống để ưu tiên lấy trực tiếp từ Google Sheets)
+    // 2. DANH SÁCH CÁC SỰ KIỆN / HOẠT ĐỘNG MẶC ĐỊNH
     activities: []
 };
 
