@@ -236,10 +236,19 @@
                     
                     <!-- Filters -->
                     <div class="row g-2 mb-3">
-                        <div class="col-md-6">
-                            <input type="text" id="attendanceSearch" class="form-control form-control-sm" placeholder="Tìm tên, MSSV, lớp..." oninput="filterAttendanceTable()" />
+                        <div class="col-md-5">
+                            <input type="text" id="attendanceSearch" class="form-control form-control-sm" placeholder="Tìm tên, MSSV, lớp, khoa, SĐT..." oninput="filterAttendanceTable()" />
                         </div>
-                        <div class="col-md-6">
+                        <div class="col-md-3">
+                            <select id="attendanceFacultyFilter" class="form-select form-select-sm" onchange="filterAttendanceTable()">
+                                <option value="">-- Tất cả các khoa --</option>
+                                <option value="Khoa Kỹ thuật Công nghệ">Khoa Kỹ thuật Công nghệ</option>
+                                <option value="Khoa Kinh tế">Khoa Kinh tế</option>
+                                <option value="Khoa Xây dựng">Khoa Xây dựng</option>
+                                <option value="Khoa Kiến trúc">Khoa Kiến trúc</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
                             <select id="attendanceActivityFilter" class="form-select form-select-sm" onchange="filterAttendanceTable()">
                                 <option value="">-- Tất cả sự kiện --</option>
                             </select>
@@ -1470,21 +1479,29 @@
             `).join('');
         }
 
-        // LỌC REALTIME TRÊN BẢNG
+        // LỌC REALTIME TRÊN BẢNG (Theo tên, MSSV, Lớp, Khoa, Sự kiện)
         function filterAttendanceTable() {
             const searchQuery = document.getElementById('attendanceSearch').value.toLowerCase().trim();
+            const facultyFilter = document.getElementById('attendanceFacultyFilter') ? document.getElementById('attendanceFacultyFilter').value.toLowerCase().trim() : '';
             const actFilter = document.getElementById('attendanceActivityFilter').value.toLowerCase();
 
             const filtered = attendanceData.filter(item => {
                 const nameStr = String(item.name || '');
                 const codeStr = String(item.studentCode || '');
                 const classStr = String(item.className || '');
+                const facultyStr = String(item.faculty || '');
+                const phoneStr = String(item.phoneNumber || '');
                 const actCodeStr = String(item.code || '');
+
                 const matchesSearch = nameStr.toLowerCase().includes(searchQuery) ||
                                       codeStr.toLowerCase().includes(searchQuery) ||
-                                      classStr.toLowerCase().includes(searchQuery);
+                                      classStr.toLowerCase().includes(searchQuery) ||
+                                      facultyStr.toLowerCase().includes(searchQuery) ||
+                                      phoneStr.toLowerCase().includes(searchQuery);
+                                      
+                const matchesFaculty = !facultyFilter || facultyStr.toLowerCase().includes(facultyFilter);
                 const matchesActivity = !actFilter || actCodeStr.toLowerCase() === actFilter;
-                return matchesSearch && matchesActivity;
+                return matchesSearch && matchesFaculty && matchesActivity;
             });
 
             renderAttendanceTable(filtered);
@@ -1499,18 +1516,26 @@
             }
 
             const searchQuery = document.getElementById('attendanceSearch').value.toLowerCase().trim();
+            const facultyFilter = document.getElementById('attendanceFacultyFilter') ? document.getElementById('attendanceFacultyFilter').value.toLowerCase().trim() : '';
             const actFilter = document.getElementById('attendanceActivityFilter').value.toLowerCase();
 
             const filtered = attendanceData.filter(item => {
                 const nameStr = String(item.name || '');
                 const codeStr = String(item.studentCode || '');
                 const classStr = String(item.className || '');
+                const facultyStr = String(item.faculty || '');
+                const phoneStr = String(item.phoneNumber || '');
                 const actCodeStr = String(item.code || '');
+
                 const matchesSearch = nameStr.toLowerCase().includes(searchQuery) ||
                                       codeStr.toLowerCase().includes(searchQuery) ||
-                                      classStr.toLowerCase().includes(searchQuery);
+                                      classStr.toLowerCase().includes(searchQuery) ||
+                                      facultyStr.toLowerCase().includes(searchQuery) ||
+                                      phoneStr.toLowerCase().includes(searchQuery);
+                                      
+                const matchesFaculty = !facultyFilter || facultyStr.toLowerCase().includes(facultyFilter);
                 const matchesActivity = !actFilter || actCodeStr.toLowerCase() === actFilter;
-                return matchesSearch && matchesActivity;
+                return matchesSearch && matchesFaculty && matchesActivity;
             });
 
             if (filtered.length === 0) {
@@ -1548,7 +1573,9 @@
             const url = URL.createObjectURL(blob);
             link.setAttribute("href", url);
             
-            const filename = `Danh_Sach_Diem_Danh_${actFilter ? actFilter.toUpperCase() : 'Tat_Ca'}_${new Date().toISOString().slice(0,10)}.csv`;
+            let facTag = facultyFilter ? facultyFilter.replace(/\s+/g, '_') : 'Tat_Ca_Khoa';
+            let actTag = actFilter ? actFilter.toUpperCase() : 'Tat_Ca_Su_Kien';
+            const filename = `Danh_Sach_Diem_Danh_${facTag}_${actTag}_${new Date().toISOString().slice(0,10)}.csv`;
             link.setAttribute("download", filename);
             link.style.visibility = 'hidden';
             document.body.appendChild(link);

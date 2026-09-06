@@ -197,8 +197,14 @@
                                 <input type="text" class="form-control" id="className" placeholder="CNTT-K21A" disabled />
                             </div>
                             <div class="mb-3">
-                                <label>Khoa</label>
-                                <input type="text" class="form-control" id="faculty" placeholder="Công nghệ thông tin" disabled />
+                                <label>Khoa <span class="text-danger">*</span></label>
+                                <select class="form-select form-control" id="faculty" disabled>
+                                    <option value="">-- Chọn Khoa --</option>
+                                    <option value="Khoa Kỹ thuật Công nghệ">Khoa Kỹ thuật Công nghệ</option>
+                                    <option value="Khoa Kinh tế">Khoa Kinh tế</option>
+                                    <option value="Khoa Xây dựng">Khoa Xây dựng</option>
+                                    <option value="Khoa Kiến trúc">Khoa Kiến trúc</option>
+                                </select>
                             </div>
                             <div class="row g-3 mb-3">
                                 <div class="col-6">
