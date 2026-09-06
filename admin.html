@@ -278,7 +278,7 @@
                                     <th>Thời gian</th>
                                     <th>Mã sự kiện</th>
                                     <th>Tên sự kiện</th>
-                                    <th>MSSV</th>
+                                    <th style="min-width: 130px;" class="text-warning"><i class="fa-solid fa-id-card me-1"></i>MSSV (Mã SV)</th>
                                     <th>Họ và Tên</th>
                                     <th>Lớp</th>
                                     <th>Khoa</th>
@@ -1704,8 +1704,8 @@
                     <td class="small text-muted">${item.timestamp}</td>
                     <td><span class="badge bg-secondary">${item.code}</span></td>
                     <td>${item.title || '--'}</td>
-                    <td class="font-monospace fw-bold">${item.studentCode}</td>
-                    <td>${item.name}</td>
+                    <td style="min-width: 130px;"><span class="badge bg-light text-primary font-monospace border border-primary px-2 py-1 fs-6">${item.studentCode || '--'}</span></td>
+                    <td class="fw-bold">${item.name}</td>
                     <td>${item.className || '--'}</td>
                     <td>${item.faculty || '--'}</td>
                     <td class="font-monospace">${item.phoneNumber || '--'}</td>
@@ -1949,19 +1949,25 @@
                     }
 
                     const header = (rows[0] || []).map(h => String(h || '').toLowerCase().trim());
-                    let colMssv = header.findIndex(h => h.includes('mssv') || h.includes('mã') || h.includes('stt'));
-                    let colName = header.findIndex(h => h.includes('họ') || h.includes('tên') || h.includes('name'));
+                    let colMssv = header.findIndex(h => h.includes('mssv') || h.includes('mã sv') || h.includes('mã sinh viên') || h.includes('studentcode') || h.includes('student_code') || h === 'mã');
+                    let colName = header.findIndex(h => h.includes('họ') || h.includes('tên') || h.includes('full name') || h.includes('fullname') || h === 'name');
                     let colClass = header.findIndex(h => h.includes('lớp') || h.includes('class'));
                     let colFaculty = header.findIndex(h => h.includes('khoa') || h.includes('faculty'));
                     let colPhone = header.findIndex(h => h.includes('thoại') || h.includes('sđt') || h.includes('phone'));
-                    let colEmail = header.findIndex(h => h.includes('email') || h.includes('gmail'));
+                    let colEmail = header.findIndex(h => h.includes('email') || h.includes('gmail') || h.includes('mail'));
 
-                    if (colMssv === -1) colMssv = 0;
-                    if (colName === -1) colName = 1;
-                    if (colClass === -1) colClass = 2;
-                    if (colFaculty === -1) colFaculty = 3;
-                    if (colPhone === -1) colPhone = 4;
-                    if (colEmail === -1) colEmail = 5;
+                    if (colMssv === -1) {
+                        if (header[0] && (header[0].includes('stt') || header[0] === 'no' || header[0] === 'nº')) {
+                            colMssv = 1;
+                        } else {
+                            colMssv = 0;
+                        }
+                    }
+                    if (colName === -1) colName = (colMssv === 0) ? 1 : 2;
+                    if (colClass === -1) colClass = colName + 1;
+                    if (colFaculty === -1) colFaculty = colClass + 1;
+                    if (colPhone === -1) colPhone = colFaculty + 1;
+                    if (colEmail === -1) colEmail = colPhone + 1;
 
                     const code = document.getElementById('importActivityCode').value;
                     const acts = getActivities();
