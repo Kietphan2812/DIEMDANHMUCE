@@ -181,7 +181,7 @@ async function dbUpdateCheckin(record) {
                 record.timestamp || '', record.code || '', record.title || '',
                 record.studentCode || '', record.name || '', record.className || '',
                 record.faculty || '', record.phoneNumber || '', record.email || '',
-                record.distance || 'Sửa thủ công (Admin)', record.id
+                record.distance !== undefined ? record.distance : 'Bổ sung thủ công (Admin)', record.id
             ]);
             return { status: 'success', message: 'Đã cập nhật lượt điểm danh thành công!' };
         } catch (e) { console.error('Lỗi update checkin SQL:', e); }
