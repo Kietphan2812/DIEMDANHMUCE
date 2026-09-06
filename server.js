@@ -158,7 +158,7 @@ async function dbSaveActivities(activitiesList) {
 async function dbGetCheckins() {
     if (pool) {
         try {
-            const res = await pool.query('SELECT timestamp, code, title, student_code as "studentCode", name, class_name as "className", faculty, phone_number as "phoneNumber", email, coords, distance, device, ip, device_uuid as "deviceUuid" FROM checkins ORDER BY id DESC');
+            const res = await pool.query('SELECT id, timestamp, code, title, student_code as "studentCode", name, class_name as "className", faculty, phone_number as "phoneNumber", email, coords, distance, device, ip, device_uuid as "deviceUuid" FROM checkins ORDER BY id DESC');
             return res.rows;
         } catch (e) { console.error('Lỗi đọc checkins từ SQL:', e); }
     }
@@ -166,6 +166,50 @@ async function dbGetCheckins() {
         try { return JSON.parse(fs.readFileSync(RECORDS_FILE, 'utf8')); } catch (e) {}
     }
     return [];
+}
+
+async function dbUpdateCheckin(record) {
+    if (pool && record.id) {
+        try {
+            await pool.query(`
+                UPDATE checkins SET
+                    timestamp = $1, code = $2, title = $3, student_code = $4,
+                    name = $5, class_name = $6, faculty = $7, phone_number = $8,
+                    email = $9, distance = $10
+                WHERE id = $11
+            `, [
+                record.timestamp || '', record.code || '', record.title || '',
+                record.studentCode || '', record.name || '', record.className || '',
+                record.faculty || '', record.phoneNumber || '', record.email || '',
+                record.distance || 'Sửa thủ công (Admin)', record.id
+            ]);
+            return { status: 'success', message: 'Đã cập nhật lượt điểm danh thành công!' };
+        } catch (e) { console.error('Lỗi update checkin SQL:', e); }
+    }
+    let list = await dbGetCheckins();
+    const idx = list.findIndex(r => (record.id && r.id == record.id) || (r.studentCode === record.studentCode && r.code === record.code));
+    if (idx !== -1) {
+        list[idx] = { ...list[idx], ...record };
+        fs.writeFileSync(RECORDS_FILE, JSON.stringify(list, null, 2), 'utf8');
+    }
+    return { status: 'success', message: 'Đã cập nhật bản ghi điểm danh!' };
+}
+
+async function dbDeleteCheckinRecord(id, studentCode, code) {
+    if (pool) {
+        try {
+            if (id) {
+                await pool.query('DELETE FROM checkins WHERE id = $1', [id]);
+            } else if (studentCode && code) {
+                await pool.query('DELETE FROM checkins WHERE student_code = $1 AND code = $2', [studentCode, code]);
+            }
+            return { status: 'success', message: 'Đã xóa lượt điểm danh thành công!' };
+        } catch (e) { console.error('Lỗi delete checkin SQL:', e); }
+    }
+    let list = await dbGetCheckins();
+    list = list.filter(r => r.id != id && !(r.studentCode === studentCode && r.code === code));
+    fs.writeFileSync(RECORDS_FILE, JSON.stringify(list, null, 2), 'utf8');
+    return { status: 'success', message: 'Đã xóa bản ghi điểm danh!' };
 }
 
 async function dbSaveCheckin(record) {
@@ -509,6 +553,16 @@ const server = http.createServer(async (req, res) => {
                 return;
             }
 
+            if (action === 'deleteCheckin' || action === 'deleteCheckinRecord') {
+                const id = parsedUrl.searchParams.get('id') || '';
+                const sc = parsedUrl.searchParams.get('studentCode') || '';
+                const code = parsedUrl.searchParams.get('code') || '';
+                const result = await dbDeleteCheckinRecord(id, sc, code);
+                res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+                res.end(JSON.stringify(result));
+                return;
+            }
+
             if (action === 'getAdminCode') {
                 const code = await dbGetAdminCode();
                 res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
@@ -593,6 +647,20 @@ const server = http.createServer(async (req, res) => {
 
                     if (action === 'updateAccount' || json.action === 'updateAccount' || action === 'editAccount') {
                         const result = await dbUpdateAccount(json.username, json.password, json.role, json.status);
+                        res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+                        res.end(JSON.stringify(result));
+                        return;
+                    }
+
+                    if (action === 'updateCheckin' || json.action === 'updateCheckin') {
+                        const result = await dbUpdateCheckin(json);
+                        res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+                        res.end(JSON.stringify(result));
+                        return;
+                    }
+
+                    if (action === 'deleteCheckin' || json.action === 'deleteCheckin' || action === 'deleteCheckinRecord') {
+                        const result = await dbDeleteCheckinRecord(json.id, json.studentCode, json.code);
                         res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
                         res.end(JSON.stringify(result));
                         return;

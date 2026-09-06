@@ -229,7 +229,8 @@
                 <div class="card card-custom p-4 d-none" id="tab-attendance-list">
                     <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
                         <h5 class="fw-bold mb-0"><i class="fa-solid fa-users text-primary me-2"></i>Danh sách sinh viên điểm danh</h5>
-                        <div class="d-flex gap-2">
+                        <div class="d-flex gap-2 flex-wrap">
+                            <button type="button" class="btn btn-sm btn-primary fw-bold" onclick="openAddManualCheckinModal()"><i class="fa-solid fa-user-plus me-1"></i> Thêm Điểm Danh Thủ Công</button>
                             <div class="btn-group" id="btnExportExcelGroup">
                                 <button type="button" class="btn btn-sm btn-success fw-bold" onclick="exportMultiSheetExcel()"><i class="fa-solid fa-file-excel me-1"></i> Xuất File Excel (4 Khoa)</button>
                                 <button type="button" class="btn btn-sm btn-success dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown" aria-expanded="false">
@@ -286,6 +287,7 @@
                                     <th>Thiết bị</th>
                                     <th>Tọa độ sự kiện</th>
                                     <th>IP máy</th>
+                                    <th class="text-center">Hành Động</th>
                                 </tr>
                             </thead>
                             <tbody id="attendanceTableBody">
@@ -486,6 +488,78 @@
                         <div class="d-flex justify-content-end gap-2 mt-4">
                             <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Hủy</button>
                             <button type="submit" class="btn btn-warning fw-bold text-dark px-4" id="btnSaveAccountEdit"><i class="fa-solid fa-save me-1"></i>Lưu Thay Đổi</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Thêm / Sửa Điểm Danh Thủ Công -->
+    <div class="modal fade" id="manualCheckinModal" tabindex="-1" aria-labelledby="manualCheckinModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content shadow-lg border-0" style="border-radius: 16px;">
+                <div class="modal-header bg-dark text-white py-3" style="border-top-left-radius: 16px; border-top-right-radius: 16px;">
+                    <h5 class="modal-title fw-bold" id="manualCheckinModalLabel"><i class="fa-solid fa-user-plus text-success me-2"></i><span id="manualCheckinModalTitleText">Thêm Lượt Điểm Danh Thủ Công</span></h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <form id="manualCheckinForm" onsubmit="saveManualCheckin(event)">
+                        <input type="hidden" id="mcId" />
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold small">Chọn Sự Kiện / Hoạt Động:</label>
+                                <select class="form-select" id="mcActivityCode" required onchange="onManualCheckinActivityChange()">
+                                    <!-- Populated dynamically -->
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold small">Mã Sinh Viên (MSSV):</label>
+                                <input type="text" class="form-control font-monospace fw-bold" id="mcStudentCode" placeholder="VD: 21000123" required />
+                            </div>
+                        </div>
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold small">Họ và Tên Sinh Viên:</label>
+                                <input type="text" class="form-control fw-bold" id="mcName" placeholder="VD: Nguyễn Văn A" required />
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold small">Lớp:</label>
+                                <input type="text" class="form-control" id="mcClassName" placeholder="VD: DH20KT01" required />
+                            </div>
+                        </div>
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold small">Khoa:</label>
+                                <select class="form-select fw-bold" id="mcFaculty" required>
+                                    <option value="Khoa Kỹ thuật Công nghệ">Khoa Kỹ thuật Công nghệ</option>
+                                    <option value="Khoa Kinh tế">Khoa Kinh tế</option>
+                                    <option value="Khoa Xây dựng">Khoa Xây dựng</option>
+                                    <option value="Khoa Kiến trúc">Khoa Kiến trúc</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold small">Số Điện Thoại:</label>
+                                <input type="text" class="form-control" id="mcPhoneNumber" placeholder="VD: 0912345678" />
+                            </div>
+                        </div>
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold small">Gmail / Email:</label>
+                                <input type="email" class="form-control" id="mcEmail" placeholder="VD: nguyenvana@gmail.com" />
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold small">Thời Gian Điểm Danh:</label>
+                                <input type="text" class="form-control font-monospace" id="mcTimestamp" placeholder="VD: 06/09/2026 19:30:00" required />
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-bold small">Ghi Chú / Cách Tâm:</label>
+                            <input type="text" class="form-control text-muted" id="mcDistance" value="Bổ sung thủ công (Admin)" />
+                        </div>
+                        <div class="d-flex justify-content-end gap-2 mt-4">
+                            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Hủy</button>
+                            <button type="submit" class="btn btn-success fw-bold px-4" id="btnSaveManualCheckin"><i class="fa-solid fa-save me-1"></i>Lưu Điểm Danh</button>
                         </div>
                     </form>
                 </div>
@@ -1566,8 +1640,173 @@
                     <td class="small text-truncate" style="max-width: 120px;" title="${item.device}">${item.device}</td>
                     <td class="small font-monospace">${item.coords || '--'}</td>
                     <td class="small font-monospace">${item.ip || '--'}</td>
+                    <td class="text-center">
+                        <button class="btn btn-sm btn-outline-warning text-dark fw-bold me-1" onclick="openEditAttendanceModal(${idx})" title="Sửa thông tin sinh viên điểm danh">
+                            <i class="fa-solid fa-pen-to-square me-1"></i> Sửa
+                        </button>
+                        <button class="btn btn-sm btn-danger fw-bold" onclick="deleteAttendanceRecord(${idx})" title="Xóa lượt điểm danh">
+                            <i class="fa-solid fa-trash me-1"></i> Xóa
+                        </button>
+                    </td>
                 </tr>
             `).join('');
+        }
+
+        let manualCheckinModalInstance = null;
+
+        function openAddManualCheckinModal() {
+            document.getElementById('manualCheckinModalTitleText').textContent = 'Thêm Lượt Điểm Danh Thủ Công';
+            document.getElementById('mcId').value = '';
+            document.getElementById('mcStudentCode').value = '';
+            document.getElementById('mcName').value = '';
+            document.getElementById('mcClassName').value = '';
+            document.getElementById('mcFaculty').value = 'Khoa Kỹ thuật Công nghệ';
+            document.getElementById('mcPhoneNumber').value = '';
+            document.getElementById('mcEmail').value = '';
+            document.getElementById('mcDistance').value = 'Bổ sung thủ công (Admin)';
+
+            const now = new Date();
+            const pad = (n) => String(n).padStart(2, '0');
+            const friendlyTime = `${pad(now.getDate())}/${pad(now.getMonth()+1)}/${now.getFullYear()} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+            document.getElementById('mcTimestamp').value = friendlyTime;
+
+            const actSelect = document.getElementById('mcActivityCode');
+            const acts = getActivities();
+            if (acts.length === 0) {
+                actSelect.innerHTML = '<option value="">-- Chưa có sự kiện --</option>';
+            } else {
+                actSelect.innerHTML = acts.map(a => `<option value="${a.code}">${a.code} - ${a.title}</option>`).join('');
+            }
+
+            if (!manualCheckinModalInstance) {
+                manualCheckinModalInstance = new bootstrap.Modal(document.getElementById('manualCheckinModal'));
+            }
+            manualCheckinModalInstance.show();
+        }
+
+        function openEditAttendanceModal(idx) {
+            const item = attendanceData[idx];
+            if (!item) {
+                alert('Không tìm thấy dữ liệu lượt điểm danh!');
+                return;
+            }
+
+            document.getElementById('manualCheckinModalTitleText').textContent = 'Chỉnh Sửa Lượt Điểm Danh';
+            document.getElementById('mcId').value = item.id || '';
+            document.getElementById('mcStudentCode').value = item.studentCode || '';
+            document.getElementById('mcName').value = item.name || '';
+            document.getElementById('mcClassName').value = item.className || '';
+            document.getElementById('mcFaculty').value = item.faculty || 'Khoa Kỹ thuật Công nghệ';
+            document.getElementById('mcPhoneNumber').value = item.phoneNumber || '';
+            document.getElementById('mcEmail').value = item.email || '';
+            document.getElementById('mcTimestamp').value = item.timestamp || '';
+            document.getElementById('mcDistance').value = item.distance || 'Sửa thủ công (Admin)';
+
+            const actSelect = document.getElementById('mcActivityCode');
+            const acts = getActivities();
+            if (acts.length === 0) {
+                actSelect.innerHTML = `<option value="${item.code}">${item.code} - ${item.title || item.code}</option>`;
+            } else {
+                actSelect.innerHTML = acts.map(a => `<option value="${a.code}">${a.code} - ${a.title}</option>`).join('');
+                actSelect.value = item.code || '';
+            }
+
+            if (!manualCheckinModalInstance) {
+                manualCheckinModalInstance = new bootstrap.Modal(document.getElementById('manualCheckinModal'));
+            }
+            manualCheckinModalInstance.show();
+        }
+
+        function onManualCheckinActivityChange() {}
+
+        async function saveManualCheckin(e) {
+            e.preventDefault();
+            const id = document.getElementById('mcId').value;
+            const code = document.getElementById('mcActivityCode').value;
+            const studentCode = document.getElementById('mcStudentCode').value.trim();
+            const name = document.getElementById('mcName').value.trim();
+            const className = document.getElementById('mcClassName').value.trim();
+            const faculty = document.getElementById('mcFaculty').value;
+            const phoneNumber = document.getElementById('mcPhoneNumber').value.trim();
+            const email = document.getElementById('mcEmail').value.trim();
+            const timestamp = document.getElementById('mcTimestamp').value.trim();
+            const distance = document.getElementById('mcDistance').value.trim() || 'Bổ sung thủ công (Admin)';
+
+            const acts = getActivities();
+            const currentAct = acts.find(a => a.code === code) || {};
+            const title = currentAct.title || code;
+            const coords = (currentAct.latitude && currentAct.longitude) ? `${currentAct.latitude}, ${currentAct.longitude}` : 'Thủ công (Admin)';
+
+            const payload = {
+                id: id ? parseInt(id) : undefined,
+                action: id ? 'updateCheckin' : 'addCheckin',
+                timestamp: timestamp,
+                code: code,
+                title: title,
+                studentCode: studentCode,
+                name: name,
+                className: className,
+                faculty: faculty,
+                phoneNumber: phoneNumber,
+                email: email,
+                coords: coords,
+                distance: distance,
+                device: 'Nhập thủ công bởi Admin',
+                ip: '127.0.0.1'
+            };
+
+            const btn = document.getElementById('btnSaveManualCheckin');
+            const origHtml = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-1"></i>Đang lưu...';
+
+            try {
+                const url = id ? '/api?action=updateCheckin' : '/api';
+                const res = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const data = await res.json();
+                if (data.status === 'success') {
+                    alert(id ? 'Đã cập nhật lượt điểm danh thành công!' : 'Đã thêm lượt điểm danh thủ công thành công!');
+                    if (manualCheckinModalInstance) manualCheckinModalInstance.hide();
+                    fetchAttendanceData();
+                } else {
+                    alert('Lỗi: ' + (data.message || 'Thất bại'));
+                }
+            } catch (err) {
+                alert('Lỗi kết nối máy chủ!');
+                console.error(err);
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = origHtml;
+            }
+        }
+
+        async function deleteAttendanceRecord(idx) {
+            const item = attendanceData[idx];
+            if (!item) return;
+
+            if (!confirm(`Bạn có chắc chắn muốn XÓA lượt điểm danh của sinh viên "${item.name}" (MSSV: ${item.studentCode})?`)) return;
+
+            try {
+                const res = await fetch('/api?action=deleteCheckin', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id: item.id, studentCode: item.studentCode, code: item.code })
+                });
+                const data = await res.json();
+                if (data.status === 'success') {
+                    alert(`Đã xóa lượt điểm danh của sinh viên "${item.name}"!`);
+                    fetchAttendanceData();
+                } else {
+                    alert('Lỗi xóa: ' + (data.message || 'Thất bại'));
+                }
+            } catch (err) {
+                alert('Lỗi kết nối máy chủ!');
+                console.error(err);
+            }
         }
 
         // LỌC REALTIME TRÊN BẢNG (Theo tên, MSSV, Lớp, Khoa, Sự kiện)
