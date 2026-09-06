@@ -127,6 +127,13 @@ async function dbGetActivities() {
 async function dbSaveActivities(activitiesList) {
     if (pool) {
         try {
+            const validCodes = (activitiesList || []).map(a => a ? a.code : null).filter(Boolean);
+            if (validCodes.length > 0) {
+                await pool.query('DELETE FROM activities WHERE code NOT IN (' + validCodes.map((_, i) => '$' + (i + 1)).join(',') + ')', validCodes);
+            } else {
+                await pool.query('DELETE FROM activities');
+            }
+
             for (const act of activitiesList) {
                 if (!act || !act.code) continue;
                 await pool.query(`
@@ -151,6 +158,24 @@ async function dbSaveActivities(activitiesList) {
         } catch (e) { console.error('Lỗi ghi activities vào SQL:', e); }
     }
     fs.writeFileSync(ACTIVITIES_FILE, JSON.stringify(activitiesList, null, 2), 'utf8');
+    return true;
+}
+
+async function dbDeleteActivity(code) {
+    if (!code) return true;
+    if (pool) {
+        try {
+            await pool.query('DELETE FROM activities WHERE code = $1', [code]);
+            return true;
+        } catch (e) { console.error('Lỗi delete activity SQL:', e); }
+    }
+    if (fs.existsSync(ACTIVITIES_FILE)) {
+        try {
+            let list = JSON.parse(fs.readFileSync(ACTIVITIES_FILE, 'utf8'));
+            list = list.filter(a => a.code !== code);
+            fs.writeFileSync(ACTIVITIES_FILE, JSON.stringify(list, null, 2), 'utf8');
+        } catch (e) {}
+    }
     return true;
 }
 
@@ -512,6 +537,14 @@ const server = http.createServer(async (req, res) => {
                 return;
             }
 
+            if (action === 'deleteActivity') {
+                const code = parsedUrl.searchParams.get('code') || '';
+                await dbDeleteActivity(code);
+                res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+                res.end(JSON.stringify({ status: 'success', message: 'Đã xóa sự kiện' }));
+                return;
+            }
+
             if (action === 'getRecords' || pathname === '/api/records') {
                 const list = await dbGetCheckins();
                 res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
@@ -663,6 +696,13 @@ const server = http.createServer(async (req, res) => {
                         const result = await dbDeleteCheckinRecord(json.id, json.studentCode, json.code);
                         res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
                         res.end(JSON.stringify(result));
+                        return;
+                    }
+
+                    if (action === 'deleteActivity' || json.action === 'deleteActivity') {
+                        await dbDeleteActivity(json.code || json.activityCode);
+                        res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+                        res.end(JSON.stringify({ status: 'success', message: 'Đã xóa sự kiện' }));
                         return;
                     }
 

@@ -1079,12 +1079,23 @@
             renderActivities();
         }
 
-        function deleteActivity(idx) {
-            if (confirm('Bạn có chắc chắn muốn xóa sự kiện này?')) {
-                const list = getActivities();
+        async function deleteActivity(idx) {
+            const list = getActivities();
+            const act = list[idx];
+            if (!act) return;
+
+            if (confirm(`Bạn có chắc chắn muốn XÓA sự kiện "${act.title || act.code}" (${act.code})?`)) {
                 list.splice(idx, 1);
                 saveActivities(list);
                 renderActivities();
+
+                if (CONFIG.googleScriptUrl) {
+                    try {
+                        await fetch(CONFIG.googleScriptUrl + '?action=deleteActivity&code=' + encodeURIComponent(act.code) + '&_t=' + Date.now());
+                    } catch (e) {
+                        console.error("Lỗi xóa sự kiện trên SQL:", e);
+                    }
+                }
             }
         }
 
