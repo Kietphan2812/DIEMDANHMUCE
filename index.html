@@ -278,8 +278,8 @@
                     <img src="logo.png" alt="MUCE Logo" class="logo-responsive">
                 </a>
                 <div class="d-flex gap-1 gap-sm-2 align-items-center">
-                    <button id="btnInstallApp" class="btn btn-sm btn-outline-info d-none" title="Cài đặt ứng dụng lên máy" style="border-radius: 8px; font-weight: 600; padding: 4px 10px; font-size: 0.85rem;">
-                        <i class="fa-solid fa-download me-1"></i> Cài App
+                    <button id="btnInstallApp" class="btn btn-sm text-white d-flex align-items-center" onclick="handleInstallAppClick()" title="Cài đặt ứng dụng về máy tính hoặc điện thoại" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); border: none; font-weight: 600; border-radius: 8px; padding: 6px 14px; font-size: 0.85rem; box-shadow: 0 3px 12px rgba(16,185,129,0.4); cursor: pointer; transition: all 0.2s;">
+                        <i class="fa-solid fa-cloud-arrow-down me-1 fs-6"></i> Cài App
                     </button>
                     <a href="index.html" class="nav-link active" title="Danh Sách Hoạt Động"><i class="fa-solid fa-calendar-days"></i><span class="d-none d-sm-inline ms-1"> Sự kiện</span></a>
                     <a href="admin.html" class="nav-link text-warning" title="Trang Quản Trị"><i class="fa-solid fa-gears"></i><span class="d-none d-sm-inline ms-1"> Quản trị</span></a>
@@ -301,6 +301,9 @@
                         <button class="btn btn-hero-primary" onclick="requestUserLocation()">
                             <i class="fa-solid fa-location-crosshairs me-2"></i>
                             <span id="gpsStatusText">Kiểm tra định vị GPS</span>
+                        </button>
+                        <button class="btn btn-hero-outline btn-install-hero" onclick="handleInstallAppClick()">
+                            <i class="fa-solid fa-mobile-screen-button me-2 text-info"></i> Cài App (PC & ĐT)
                         </button>
                     </div>
                 </div>
@@ -477,6 +480,171 @@
                     deferredInstallPrompt = null;
                 } else {
                     alert('Hướng dẫn cài đặt ứng dụng:\n\n- Trên Máy tính (Chrome / Cốc Cốc / Edge): Bấm biểu tượng Cài đặt ở góc phải thanh địa chỉ URL.\n- Trên Điện thoại iPhone (Safari): Bấm nút Chia sẻ (hình ô vuông mũi tên lên) -> Chọn "Thêm vào MH chính".\n- Trên Điện thoại Android (Chrome): Bấm dấu 3 chấm góc phải -> Chọn "Cài đặt ứng dụng" / "Thêm vào màn hình chính".');
+                }
+            });
+        }
+    </script>
+
+    <!-- MODAL HUONG DAN CAI DAT APP -->
+    <div id="installGuideModal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.75); z-index: 99999; backdrop-filter: blur(8px); align-items: center; justify-content: center; padding: 15px;">
+        <div style="background: #181829; border: 1px solid rgba(99,102,241,0.3); border-radius: 18px; max-width: 520px; width: 100%; box-shadow: 0 20px 50px rgba(0,0,0,0.6); color: #e2e8f0; overflow: hidden; animation: popIn 0.3s ease;">
+            <div style="padding: 18px 24px; border-bottom: 1px solid rgba(99,102,241,0.15); display: flex; justify-content: space-between; align-items: center; background: rgba(30,30,56,0.5);">
+                <div class="d-flex align-items-center gap-2">
+                    <div style="width: 38px; height: 38px; border-radius: 10px; background: linear-gradient(135deg, #6366f1, #8b5cf6); display: flex; align-items: center; justify-content: center;">
+                        <i class="fa-solid fa-download text-white"></i>
+                    </div>
+                    <div>
+                        <h6 style="margin: 0; font-weight: 700; color: #fff;">Cài đặt Ứng dụng Điểm Danh</h6>
+                        <small style="color: #94a3b8; font-size: 0.78rem;">Dùng mượt mà trên PC, Android & iPhone</small>
+                    </div>
+                </div>
+                <button onclick="closeInstallModal()" style="background: none; border: none; color: #94a3b8; font-size: 1.3rem; cursor: pointer;">&times;</button>
+            </div>
+            
+            <div style="padding: 20px 24px;">
+                <!-- Platform Tabs -->
+                <div style="display: flex; gap: 8px; margin-bottom: 18px; background: rgba(15,15,26,0.6); padding: 5px; border-radius: 12px; border: 1px solid rgba(99,102,241,0.15);">
+                    <button class="install-tab-btn active" id="tabBtnPc" onclick="switchInstallTab('pc')" style="flex: 1; padding: 8px 12px; border: none; border-radius: 8px; font-size: 0.82rem; font-weight: 600; cursor: pointer; background: #6366f1; color: #fff; transition: all 0.2s;">
+                        <i class="fa-solid fa-desktop me-1"></i> Máy tính
+                    </button>
+                    <button class="install-tab-btn" id="tabBtnAndroid" onclick="switchInstallTab('android')" style="flex: 1; padding: 8px 12px; border: none; border-radius: 8px; font-size: 0.82rem; font-weight: 600; cursor: pointer; background: transparent; color: #94a3b8; transition: all 0.2s;">
+                        <i class="fa-brands fa-android me-1 text-success"></i> Android
+                    </button>
+                    <button class="install-tab-btn" id="tabBtnIos" onclick="switchInstallTab('ios')" style="flex: 1; padding: 8px 12px; border: none; border-radius: 8px; font-size: 0.82rem; font-weight: 600; cursor: pointer; background: transparent; color: #94a3b8; transition: all 0.2s;">
+                        <i class="fa-brands fa-apple me-1 text-white"></i> iPhone (iOS)
+                    </button>
+                </div>
+
+                <!-- Tab Content: PC -->
+                <div id="tabContentPc" class="install-tab-content">
+                    <div style="background: rgba(30,30,56,0.5); border: 1px solid rgba(99,102,241,0.2); border-radius: 12px; padding: 14px; margin-bottom: 12px;">
+                        <div class="d-flex align-items-center mb-2">
+                            <span class="badge bg-primary me-2">Cách 1</span>
+                            <strong>Bấm cài trực tiếp:</strong>
+                        </div>
+                        <button id="btnModalDirectInstall" onclick="tryDirectInstall()" class="btn btn-success w-100 py-2 fw-bold" style="background: linear-gradient(135deg, #10b981, #059669); border: none; border-radius: 10px;">
+                            <i class="fa-solid fa-download me-2"></i> Bấm để Cài đặt ngay lên Máy tính
+                        </button>
+                    </div>
+                    <div style="font-size: 0.85rem; color: #cbd5e1; line-height: 1.6;">
+                        <div class="d-flex align-items-center mb-2">
+                            <span class="badge bg-secondary me-2">Cách 2</span>
+                            <strong>Cài qua thanh địa chỉ trình duyệt:</strong>
+                        </div>
+                        <ul style="padding-left: 20px; margin: 0;">
+                            <li>Trên <b>Chrome / Edge / Cốc Cốc</b>: Nhìn sang <b>cuối thanh địa chỉ URL</b>, bấm biểu tượng <i class="fa-solid fa-desktop text-primary"></i> <b>Cài đặt ứng dụng</b>.</li>
+                            <li>Hoặc bấm dấu <b>3 chấm ⋮</b> ở góc phải trên cùng &rarr; <b>Lưu và chia sẻ</b> &rarr; <b>Cài đặt Điểm Danh GPS MUCE...</b></li>
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Tab Content: Android -->
+                <div id="tabContentAndroid" class="install-tab-content" style="display: none;">
+                    <div style="background: rgba(30,30,56,0.5); border: 1px solid rgba(99,102,241,0.2); border-radius: 12px; padding: 14px; margin-bottom: 12px;">
+                        <button onclick="tryDirectInstall()" class="btn btn-success w-100 py-2 fw-bold mb-2" style="background: linear-gradient(135deg, #10b981, #059669); border: none; border-radius: 10px;">
+                            <i class="fa-brands fa-android me-2"></i> Cài đặt lên điện thoại Android
+                        </button>
+                    </div>
+                    <div style="font-size: 0.85rem; color: #cbd5e1; line-height: 1.6;">
+                        <p class="mb-1"><b>Nếu không thấy thông báo tự động:</b></p>
+                        <ol style="padding-left: 20px; margin: 0;">
+                            <li>Mở trang web bằng trình duyệt <b>Google Chrome</b>.</li>
+                            <li>Bấm vào biểu tượng <b>3 chấm (⋮)</b> ở góc trên bên phải.</li>
+                            <li>Chọn <b>"Cài đặt ứng dụng"</b> (hoặc <b>"Thêm vào Màn hình chính"</b>).</li>
+                        </ol>
+                    </div>
+                </div>
+
+                <!-- Tab Content: iOS -->
+                <div id="tabContentIos" class="install-tab-content" style="display: none;">
+                    <div style="font-size: 0.88rem; color: #cbd5e1; line-height: 1.7; background: rgba(30,30,56,0.5); border: 1px solid rgba(99,102,241,0.2); border-radius: 12px; padding: 16px;">
+                        <div style="margin-bottom: 10px;">
+                            <b>1.</b> Mở trang web này bằng trình duyệt <b>Safari</b> trên iPhone / iPad.
+                        </div>
+                        <div style="margin-bottom: 10px;">
+                            <b>2.</b> Bấm vào nút <b>Chia sẻ</b> <i class="fa-solid fa-arrow-up-from-bracket text-primary ms-1"></i> (biểu tượng ô vuông có mũi tên lên ở thanh dưới cùng).
+                        </div>
+                        <div style="margin-bottom: 5px;">
+                            <b>3.</b> Cuộn xuống chọn <b>"Thêm vào MH chính" (Add to Home Screen)</b> &rarr; Bấm <b>Thêm</b> ở góc trên cùng.
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div style="padding: 12px 24px; background: rgba(15,15,26,0.7); border-top: 1px solid rgba(99,102,241,0.15); text-align: right;">
+                <button onclick="closeInstallModal()" class="btn btn-sm btn-secondary px-3" style="border-radius: 8px;">Đóng</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- PWA Install JavaScript Logic -->
+    <script>
+        let deferredPromptEvent = null;
+
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPromptEvent = e;
+            console.log('beforeinstallprompt fired!');
+        });
+
+        function handleInstallAppClick() {
+            if (deferredPromptEvent) {
+                deferredPromptEvent.prompt();
+                deferredPromptEvent.userChoice.then((choiceResult) => {
+                    console.log('User choice:', choiceResult.outcome);
+                    deferredPromptEvent = null;
+                });
+            } else {
+                openInstallModal();
+            }
+        }
+
+        function tryDirectInstall() {
+            if (deferredPromptEvent) {
+                deferredPromptEvent.prompt();
+                deferredPromptEvent.userChoice.then((choiceResult) => {
+                    console.log('User choice:', choiceResult.outcome);
+                    deferredPromptEvent = null;
+                    closeInstallModal();
+                });
+            } else {
+                alert('Vui lòng làm theo các bước hướng dẫn bên dưới trên trình duyệt của bạn để cài đặt!');
+            }
+        }
+
+        function openInstallModal() {
+            const modal = document.getElementById('installGuideModal');
+            if (modal) {
+                modal.style.display = 'flex';
+                // Auto detect OS
+                const ua = navigator.userAgent || navigator.vendor || window.opera;
+                if (/iPad|iPhone|iPod/.test(ua) && !window.MSStream) {
+                    switchInstallTab('ios');
+                } else if (/android/i.test(ua)) {
+                    switchInstallTab('android');
+                } else {
+                    switchInstallTab('pc');
+                }
+            }
+        }
+
+        function closeInstallModal() {
+            const modal = document.getElementById('installGuideModal');
+            if (modal) modal.style.display = 'none';
+        }
+
+        function switchInstallTab(type) {
+            ['pc', 'android', 'ios'].forEach(t => {
+                const btn = document.getElementById('tabBtn' + t.charAt(0).toUpperCase() + t.slice(1));
+                const content = document.getElementById('tabContent' + t.charAt(0).toUpperCase() + t.slice(1));
+                if (t === type) {
+                    btn.style.background = '#6366f1';
+                    btn.style.color = '#fff';
+                    content.style.display = 'block';
+                } else {
+                    btn.style.background = 'transparent';
+                    btn.style.color = '#94a3b8';
+                    content.style.display = 'none';
                 }
             });
         }
