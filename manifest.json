@@ -1,0 +1,43 @@
+﻿{
+  "name": "Điểm Danh GPS MUCE",
+  "short_name": "Điểm Danh",
+  "description": "Hệ thống điểm danh sự kiện bằng xác thực GPS vệ tinh - MUCE",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#0f0f1a",
+  "theme_color": "#6d28d9",
+  "lang": "vi",
+  "categories": ["education", "utilities"],
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Danh sách sự kiện",
+      "short_name": "Sự kiện",
+      "description": "Xem danh sách hoạt động điểm danh",
+      "url": "./index.html",
+      "icons": [{ "src": "icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Trang quản trị",
+      "short_name": "Admin",
+      "description": "Quản lý sự kiện và tài khoản",
+      "url": "./admin.html",
+      "icons": [{ "src": "icon-192.png", "sizes": "192x192" }]
+    }
+  ]
+}

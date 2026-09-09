@@ -258,6 +258,16 @@
             .nav-link { padding: 0.4rem 0.6rem !important; font-size: 0.82rem !important; }
         }
     </style>
+
+    <!-- PWA Meta Tags -->
+    <link rel="manifest" href="manifest.json" />
+    <meta name="theme-color" content="#6d28d9" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Điểm Danh" />
+    <link rel="icon" type="image/png" href="icon-192.png" />
+    <link rel="apple-touch-icon" href="icon-192.png" />
 </head>
 <body>
 
@@ -267,7 +277,10 @@
                 <a class="navbar-brand d-flex align-items-center" href="index.html" style="max-width: 75%;">
                     <img src="logo.png" alt="MUCE Logo" class="logo-responsive">
                 </a>
-                <div class="d-flex gap-1 gap-sm-2">
+                <div class="d-flex gap-1 gap-sm-2 align-items-center">
+                    <button id="btnInstallApp" class="btn btn-sm btn-outline-info d-none" title="Cài đặt ứng dụng lên máy" style="border-radius: 8px; font-weight: 600; padding: 4px 10px; font-size: 0.85rem;">
+                        <i class="fa-solid fa-download me-1"></i> Cài App
+                    </button>
                     <a href="index.html" class="nav-link active" title="Danh Sách Hoạt Động"><i class="fa-solid fa-calendar-days"></i><span class="d-none d-sm-inline ms-1"> Sự kiện</span></a>
                     <a href="admin.html" class="nav-link text-warning" title="Trang Quản Trị"><i class="fa-solid fa-gears"></i><span class="d-none d-sm-inline ms-1"> Quản trị</span></a>
                 </div>
@@ -429,6 +442,43 @@
                 },
                 err => { statusEl.textContent = 'Lỗi định vị'; }
             );
+        }
+    </script>
+
+    <!-- PWA Service Worker & Install Handler -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js')
+                    .then(reg => console.log('PWA ServiceWorker OK:', reg.scope))
+                    .catch(err => console.log('PWA ServiceWorker Err:', err));
+            });
+        }
+
+        let deferredInstallPrompt = null;
+        const installAppBtn = document.getElementById('btnInstallApp');
+
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredInstallPrompt = e;
+            if (installAppBtn) {
+                installAppBtn.classList.remove('d-none');
+            }
+        });
+
+        if (installAppBtn) {
+            installAppBtn.addEventListener('click', async () => {
+                if (deferredInstallPrompt) {
+                    deferredInstallPrompt.prompt();
+                    const choice = await deferredInstallPrompt.userChoice;
+                    if (choice.outcome === 'accepted') {
+                        installAppBtn.classList.add('d-none');
+                    }
+                    deferredInstallPrompt = null;
+                } else {
+                    alert('Hướng dẫn cài đặt ứng dụng:\n\n- Trên Máy tính (Chrome / Cốc Cốc / Edge): Bấm biểu tượng Cài đặt ở góc phải thanh địa chỉ URL.\n- Trên Điện thoại iPhone (Safari): Bấm nút Chia sẻ (hình ô vuông mũi tên lên) -> Chọn "Thêm vào MH chính".\n- Trên Điện thoại Android (Chrome): Bấm dấu 3 chấm góc phải -> Chọn "Cài đặt ứng dụng" / "Thêm vào màn hình chính".');
+                }
+            });
         }
     </script>
 </body>

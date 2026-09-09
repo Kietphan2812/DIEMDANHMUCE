@@ -89,6 +89,16 @@
             #checkinMap { height: 220px; }
         }
     </style>
+
+    <!-- PWA Meta Tags -->
+    <link rel="manifest" href="manifest.json" />
+    <meta name="theme-color" content="#6d28d9" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Điểm Danh" />
+    <link rel="icon" type="image/png" href="icon-192.png" />
+    <link rel="apple-touch-icon" href="icon-192.png" />
 </head>
 <body>
     <div class="top-bar">
@@ -525,6 +535,43 @@
                 console.warn('Lỗi fetch trực tiếp, thực hiện lưu fallback:', err);
                 saveLocalAndShowSuccess(studentCode, fullName, dist);
             }
+        }
+    </script>
+
+    <!-- PWA Service Worker & Install Handler -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js')
+                    .then(reg => console.log('PWA ServiceWorker OK:', reg.scope))
+                    .catch(err => console.log('PWA ServiceWorker Err:', err));
+            });
+        }
+
+        let deferredInstallPrompt = null;
+        const installAppBtn = document.getElementById('btnInstallApp');
+
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredInstallPrompt = e;
+            if (installAppBtn) {
+                installAppBtn.classList.remove('d-none');
+            }
+        });
+
+        if (installAppBtn) {
+            installAppBtn.addEventListener('click', async () => {
+                if (deferredInstallPrompt) {
+                    deferredInstallPrompt.prompt();
+                    const choice = await deferredInstallPrompt.userChoice;
+                    if (choice.outcome === 'accepted') {
+                        installAppBtn.classList.add('d-none');
+                    }
+                    deferredInstallPrompt = null;
+                } else {
+                    alert('Hướng dẫn cài đặt ứng dụng:\n\n- Trên Máy tính (Chrome / Cốc Cốc / Edge): Bấm biểu tượng Cài đặt ở góc phải thanh địa chỉ URL.\n- Trên Điện thoại iPhone (Safari): Bấm nút Chia sẻ (hình ô vuông mũi tên lên) -> Chọn "Thêm vào MH chính".\n- Trên Điện thoại Android (Chrome): Bấm dấu 3 chấm góc phải -> Chọn "Cài đặt ứng dụng" / "Thêm vào màn hình chính".');
+                }
+            });
         }
     </script>
 </body>
